@@ -13,15 +13,11 @@ def flag(name: str, default: bool = False) -> bool:
         "1",
         "true",
         "yes",
-        "on"
+        "on",
     }
 
 
 def clean_env(name: str, default: str = "") -> str:
-    """
-    Removes accidental spaces/newlines when API
-    credentials are pasted into Railway.
-    """
     return os.getenv(
         name,
         default
@@ -31,9 +27,9 @@ def clean_env(name: str, default: str = "") -> str:
 @dataclass
 class Settings:
 
-    # --------------------------------------------------
+    # =========================================================
     # KRAKEN
-    # --------------------------------------------------
+    # =========================================================
 
     kraken_api_key: str = clean_env(
         "KRAKEN_API_KEY"
@@ -43,10 +39,11 @@ class Settings:
         "KRAKEN_API_SECRET"
     )
 
-    # --------------------------------------------------
-    # TRADING SAFETY
-    # --------------------------------------------------
+    # =========================================================
+    # SAFETY
+    # =========================================================
 
+    # KEEP LIVE TRADING OFF WHILE TESTING
     live_trading: bool = flag(
         "LIVE_TRADING",
         False
@@ -62,13 +59,15 @@ class Settings:
         True
     )
 
-    # --------------------------------------------------
-    # MARKET
-    # --------------------------------------------------
+    # =========================================================
+    # MARKET DATA
+    # =========================================================
 
+    # Leave blank.
+    # The bot will automatically discover Kraken markets.
     symbols_raw: str = clean_env(
         "SYMBOLS",
-        "BTC/USD,ETH/USD,SOL/USD"
+        ""
     )
 
     timeframe: str = clean_env(
@@ -86,13 +85,63 @@ class Settings:
     scan_seconds: int = int(
         clean_env(
             "SCAN_SECONDS",
+            "30"
+        )
+    )
+
+    # =========================================================
+    # FULL KRAKEN MARKET SCANNER
+    # =========================================================
+
+    # Refresh the entire Kraken market universe every
+    # 30 minutes by default.
+    market_refresh_seconds: int = int(
+        clean_env(
+            "MARKET_REFRESH_SECONDS",
+            "1800"
+        )
+    )
+
+    # Number of liquid markets to actually run the expensive
+    # OHLCV + machine-learning analysis on each scan.
+    max_scan_symbols: int = int(
+        clean_env(
+            "MAX_SCAN_SYMBOLS",
             "20"
         )
     )
 
-    # --------------------------------------------------
+    # Minimum 24h quote volume required.
+    min_quote_volume_usd: float = float(
+        clean_env(
+            "MIN_QUOTE_VOLUME_USD",
+            "250000"
+        )
+    )
+
+    # Maximum allowed bid/ask spread.
+    max_spread_pct: float = float(
+        clean_env(
+            "MAX_SPREAD_PCT",
+            "0.80"
+        )
+    )
+
+    # Start with USD markets.
+    #
+    # You can later add:
+    # USD,USDT,USDC
+    #
+    # Example:
+    # ALLOWED_QUOTES=USD,USDT,USDC
+    allowed_quotes: str = clean_env(
+        "ALLOWED_QUOTES",
+        "USD"
+    )
+
+    # =========================================================
     # MACHINE LEARNING
-    # --------------------------------------------------
+    # =========================================================
 
     train_every_seconds: int = int(
         clean_env(
@@ -129,9 +178,9 @@ class Settings:
         )
     )
 
-    # --------------------------------------------------
-    # POSITION / RISK
-    # --------------------------------------------------
+    # =========================================================
+    # POSITION SIZING
+    # =========================================================
 
     max_trade_usd: float = float(
         clean_env(
@@ -146,6 +195,10 @@ class Settings:
             "0.05"
         )
     )
+
+    # =========================================================
+    # RISK MANAGEMENT
+    # =========================================================
 
     stop_loss_pct: float = float(
         clean_env(
@@ -196,6 +249,10 @@ class Settings:
         )
     )
 
+    # =========================================================
+    # PAPER ACCOUNT
+    # =========================================================
+
     paper_start_balance: float = float(
         clean_env(
             "PAPER_START_BALANCE",
@@ -203,34 +260,47 @@ class Settings:
         )
     )
 
-    # --------------------------------------------------
-    # COST ESTIMATES
-    # --------------------------------------------------
+    # =========================================================
+    # TRADING COST MODEL
+    # =========================================================
+    #
+    # These are estimates for PAPER testing.
+    # They are NOT guaranteed Kraken fees.
+    #
+    # We keep these configurable so we can tune the bot
+    # to your actual Kraken fee tier later.
 
     round_trip_cost_pct: float = float(
         clean_env(
             "ROUND_TRIP_COST_PCT",
-            "1.60"
+            "0.40"
         )
     )
 
     slippage_buffer_pct: float = float(
         clean_env(
             "SLIPPAGE_BUFFER_PCT",
-            "0.15"
+            "0.10"
         )
     )
 
-    # --------------------------------------------------
-    # SYMBOL LIST
-    # --------------------------------------------------
+    # =========================================================
+    # SYMBOL HELPERS
+    # =========================================================
 
     @property
     def symbols(self):
-
         return [
             x.strip()
             for x in self.symbols_raw.split(",")
+            if x.strip()
+        ]
+
+    @property
+    def allowed_quote_list(self):
+        return [
+            x.strip().upper()
+            for x in self.allowed_quotes.split(",")
             if x.strip()
         ]
 
