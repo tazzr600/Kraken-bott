@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAKEN BOT</title>
+<style>
+:root{--bg:#07090d;--p:#101620;--l:#202a38;--t:#f5f7fb;--m:#8793a5;--g:#36e58b;--r:#ff5c76;--y:#e6c66d;--b:#62a8ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#152033,#07090d 45%);color:var(--t);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1200px;margin:auto;padding:16px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.brand{font-weight:900;letter-spacing:.12em;font-size:24px}.sub{font-size:11px;color:var(--m);margin-top:3px}.status{font-size:12px;color:var(--g)}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.card{background:rgba(16,22,32,.94);border:1px solid var(--l);border-radius:16px;padding:14px}.label{font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.08em}.value{font-size:23px;font-weight:800;margin-top:5px}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}button{border:1px solid var(--l);background:#17202d;color:var(--t);border-radius:11px;padding:10px 14px;font-weight:700}button.primary{background:var(--y);color:#090b0e;border-color:var(--y)}button.stop{color:var(--r);border-color:#63303d;background:#211219}.main{display:grid;grid-template-columns:1.5fr 1fr;gap:10px}.title{display:flex;justify-content:space-between;align-items:center}.title h2{font-size:14px;margin:0}.badge{font-size:10px;border:1px solid var(--l);border-radius:20px;padding:5px 8px;color:var(--m)}.pick{border:1px solid rgba(230,198,109,.5);background:linear-gradient(135deg,rgba(230,198,109,.1),rgba(16,22,32,.9));padding:14px;border-radius:14px;margin:12px 0}.pick strong{color:var(--y)}.row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.metric{background:#0b1119;border:1px solid var(--l);padding:8px;border-radius:10px}.metric small{display:block;color:var(--m);font-size:9px}.metric b{font-size:13px}.sig{border-top:1px solid var(--l);padding:12px 0}.sig:first-child{border-top:0}.right{display:grid;gap:10px}.pos{padding:10px 0;border-top:1px solid var(--l)}.pos:first-child{border-top:0}pre{white-space:pre-wrap;color:var(--m);font-size:11px}.green{color:var(--g)}.red{color:var(--r)}@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}.main{grid-template-columns:1fr}.row{grid-template-columns:repeat(2,1fr)}}@media(max-width:450px){.grid{gap:7px}.value{font-size:19px}.card{padding:12px}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top"><div><div class="brand">KRAKEN BOT</div><div class="sub">AUTONOMOUS MACHINE-LEARNING TRADING SYSTEM</div></div><div class="status" id="conn">CONNECTING</div></div>
+
+<div class="grid">
+<div class="card"><div class="label">Mode</div><div class="value" id="mode">PAPER</div></div>
+<div class="card"><div class="label">P&amp;L</div><div class="value" id="pnl">$0.00</div></div>
+<div class="card"><div class="label">Win Rate</div><div class="value" id="win">—</div></div>
+<div class="card"><div class="label">Trades</div><div class="value" id="trades">0</div></div>
+</div>
+
+<div class="controls">
+<button class="primary" onclick="scan()">SCAN NOW</button>
+<button onclick="start()">START BOT</button>
+<button class="stop" onclick="stop()">STOP BOT</button>
+</div>
+
+<div class="main">
+<section class="card">
+<div class="title"><h2>🏆 KRAKEN BOT TOP PICK</h2><span class="badge" id="state">WAITING</span></div>
+<div id="top"><div style="color:var(--m);padding:20px 0">Waiting for the first ML scan…</div></div>
+<hr style="border-color:var(--l);border-width:1px 0 0;margin:15px 0">
+<div class="title"><h2>MARKET RANKING</h2><span class="badge" id="count">0</span></div>
+<div id="signals"></div>
+</section>
+
+<div class="right">
+<section class="card"><div class="title"><h2>OPEN POSITIONS</h2><span class="badge">RISK ENGINE</span></div><div id="positions">None</div></section>
+<section class="card"><div class="title"><h2>MODEL</h2><span class="badge">LOCAL ML</span></div><div id="model" style="color:var(--m);margin-top:10px">No model data yet.</div></section>
+<section class="card"><div class="title"><h2>ERROR / LOG</h2></div><pre id="error">None</pre></section>
+</div>
+</div>
+</div>
+
+<script>
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+const pct=x=>(Number(x||0)*100).toFixed(2)+"%";
+const money=x=>"$"+Number(x||0).toFixed(2);
+
+async function call(path,opts={}){const r=await fetch(path,{headers:{"Content-Type":"application/json"},...opts});if(!r.ok)throw new Error(await r.text());return r.json()}
+
+function render(d){
+ document.getElementById("conn").textContent="CONNECTED";
+ document.getElementById("mode").textContent=d.mode;
+ document.getElementById("pnl").textContent=money(d.stats?.pnl);
+ document.getElementById("win").textContent=d.stats?.trades?pct(d.stats.win_rate):"—";
+ document.getElementById("trades").textContent=d.stats?.trades||0;
+ document.getElementById("count").textContent=(d.signals||[]).length;
+ document.getElementById("state").textContent=d.running?"RUNNING":"STOPPED";
+ document.getElementById("error").textContent=d.error||"None";
+
+ const s=d.signals||[];
+ const t=s[0];
+ if(t){
+   document.getElementById("top").innerHTML=`<div class="pick"><strong>${esc(t.symbol)}</strong> — $${Number(t.price).toFixed(4)}
+   <div class="row">
+    <div class="metric"><small>ML PROBABILITY</small><b>${pct(t.probability_up)}</b></div>
+    <div class="metric"><small>EXPECTED MOVE</small><b>${pct(t.expected_move)}</b></div>
+    <div class="metric"><small>MODEL ACCURACY</small><b>${pct(t.accuracy)}</b></div>
+    <div class="metric"><small>SCORE</small><b>${Number(t.score).toFixed(5)}</b></div>
+   </div></div>`;
+ }else document.getElementById("top").innerHTML=`<div style="color:var(--m);padding:20px 0">No eligible trade.</div>`;
+
+ document.getElementById("signals").innerHTML=s.map((x,i)=>`<div class="sig">
+ <b>${i===0?"🏆 ":""}${esc(x.symbol)}</b> <span style="color:var(--m)">$${Number(x.price).toFixed(4)}</span>
+ <div class="row">
+ <div class="metric"><small>PROB.</small><b>${pct(x.probability_up)}</b></div>
+ <div class="metric"><small>MOVE</small><b>${pct(x.expected_move)}</b></div>
+ <div class="metric"><small>SPREAD</small><b>${pct(x.spread)}</b></div>
+ <div class="metric"><small>SCORE</small><b>${Number(x.score).toFixed(5)}</b></div>
+ </div></div>`).join("")||"<div style='color:var(--m);padding:15px 0'>No signals yet.</div>";
+
+ const p=d.positions||[];
+ document.getElementById("positions").innerHTML=p.map(x=>`<div class="pos"><b>${esc(x.symbol)}</b><br>
+ Entry $${Number(x.entry_price).toFixed(4)} · Stop $${Number(x.stop_price).toFixed(4)} · Target $${Number(x.target_price).toFixed(4)}</div>`).join("")||"<div style='color:var(--m);padding:12px 0'>No open positions.</div>";
+
+ if(t) document.getElementById("model").innerHTML=`Top model: <b>${esc(t.symbol)}</b><br>Training samples: ${t.samples}<br>Holdout accuracy: ${pct(t.accuracy)}<br>Last trained: ${t.trained_at?new Date(t.trained_at*1000).toLocaleTimeString():"—"}`;
+}
+
+async function refresh(){try{render(await call("/api/status"))}catch(e){document.getElementById("conn").textContent="OFFLINE";document.getElementById("error").textContent=e.message}}
+async function scan(){try{document.getElementById("state").textContent="SCANNING";await call("/api/scan",{method:"POST"});await refresh()}catch(e){document.getElementById("error").textContent=e.message}}
+async function start(){try{await call("/api/start",{method:"POST"});await refresh()}catch(e){alert(e.message)}}
+async function stop(){try{await call("/api/stop",{method:"POST"});await refresh()}catch(e){alert(e.message)}}
+refresh();setInterval(refresh,5000);
+</script>
+</body>
+</html>
