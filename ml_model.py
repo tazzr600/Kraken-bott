@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import time
 from dataclasses import dataclass, field
 
@@ -17,10 +16,6 @@ from sklearn.metrics import accuracy_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-
-# ============================================================
-# MULTI-STRATEGY FEATURE ENGINE
-# ============================================================
 
 FEATURES = [
     # Momentum
@@ -71,22 +66,30 @@ FEATURES = [
 ]
 
 
-# ============================================================
-# FEATURE CALCULATION
-# ============================================================
+def _safe_series(series, default=0.0):
+    return pd.to_numeric(
+        series,
+        errors="coerce"
+    ).replace(
+        [np.inf, -np.inf],
+        np.nan
+    ).fillna(default)
+
 
 def make_features(df: pd.DataFrame) -> pd.DataFrame:
-
     x = df.copy()
 
-    close = x["close"].astype(float)
-    high = x["high"].astype(float)
-    low = x["low"].astype(float)
-    volume = x["volume"].astype(float)
+    for col in ["open", "high", "low", "close", "volume"]:
+        x[col] = _safe_series(x[col])
 
-    # --------------------------------------------------------
-    # MOMENTUM
-    # --------------------------------------------------------
+    close = x["close"]
+    high = x["high"]
+    low = x["low"]
+    volume = x["volume"]
+
+    # ---------------------------------------------------------
+    # RETURNS / MOMENTUM
+    # ---------------------------------------------------------
 
     x["ret_1"] = close.pct_change(1)
     x["ret_3"] = close.pct_change(3)
@@ -94,696 +97,457 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
     x["ret_12"] = close.pct_change(12)
     x["roc_20"] = close.pct_change(20)
 
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
     # EMA / TREND
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
 
-    ema_fast = close.ewm(
-        span=8,
-        adjust=False
-    ).mean()
+    ema_fast = close.ewm(span=9, adjust=False).mean()
+    ema_slow = close.ewm(span=21, adjust=False).mean()
 
-    ema_slow = close.ewm(
-        span=21,
-        adjust=False
-    ).mean()
+    x["ema_fast_gap"] = close / ema_fast - 1
+    x["ema_slow_gap"] = close / ema_slow - 1
+    x["ema_cross"] = ema_fast / ema_slow - 1
 
-    ema_50 = close.ewm(
-        span=50,
-        adjust=False
-    ).mean()
+    x["trend_15"] = close / close.shift(15) - 1
+    x["trend_30"] = close / close.shift(30) - 1
 
-    x["ema_fast_gap"] = (
-        close / ema_fast - 1
-    )
+    # ---------------------------------------------------------
+    # RSI
+    # ---------------------------------------------------------
 
-    x["ema_slow_gap"] = (
-        close / ema_slow - 1
-    )
+    delta = close.diff()
 
-    x["ema_cross"] = (
-        ema_fast / ema_slow - 1
-    )
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = (-delta.clip(upper=0)).rolling(14).mean()
 
-    x["trend_15"] = close.pct_change(15)
-    x["trend_30"] = close.pct_change(30)
+    rs = gain / loss.replace(0, np.nan)
 
-    # --------------------------------------------------------
-    # TRUE RANGE / ATR
-    # --------------------------------------------------------
+    x["rsi"] = 100 - (100 / (1 + rs))
+    x["rsi"] = x["rsi"].fillna(50)
 
-    prev_close = close.shift(1)
+    # ---------------------------------------------------------
+    # ATR
+    # ---------------------------------------------------------
+
+    previous_close = close.shift(1)
 
     tr = pd.concat(
         [
             high - low,
-            (high - prev_close).abs(),
-            (low - prev_close).abs(),
+            (high - previous_close).abs(),
+            (low - previous_close).abs(),
         ],
         axis=1,
     ).max(axis=1)
 
     atr = tr.rolling(14).mean()
 
-    # --------------------------------------------------------
-    # ADX-LIKE TREND STRENGTH
-    # --------------------------------------------------------
+    x["atr_pct"] = atr / close.replace(0, np.nan)
 
-    up_move = high.diff()
-    down_move = -low.diff()
+    # ---------------------------------------------------------
+    # VOLATILITY
+    # ---------------------------------------------------------
 
-    plus_dm = up_move.where(
-        (up_move > down_move) &
-        (up_move > 0),
-        0.0,
+    x["volatility"] = (
+        close.pct_change()
+        .rolling(20)
+        .std()
     )
 
-    minus_dm = down_move.where(
-        (down_move > up_move) &
-        (down_move > 0),
-        0.0,
-    )
-
-    plus_di = (
-        100 *
-        plus_dm.rolling(14).mean()
-        / atr.replace(0, np.nan)
-    )
-
-    minus_di = (
-        100 *
-        minus_dm.rolling(14).mean()
-        / atr.replace(0, np.nan)
-    )
-
-    x["adx_like"] = (
-        (plus_di - minus_di).abs()
-        /
-        (plus_di + minus_di).replace(
-            0,
-            np.nan,
-        )
-    )
-
-    # --------------------------------------------------------
-    # RSI
-    # --------------------------------------------------------
-
-    delta = close.diff()
-
-    gain = (
-        delta.clip(lower=0)
-        .rolling(14)
-        .mean()
-    )
-
-    loss = (
-        -delta.clip(upper=0)
-        .rolling(14)
-        .mean()
-    )
-
-    rs = gain / loss.replace(
-        0,
-        np.nan,
-    )
-
-    x["rsi"] = (
-        100 -
-        (
-            100 /
-            (1 + rs)
-        )
-    ).fillna(50)
-
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
     # BOLLINGER BANDS
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
 
     bb_mid = close.rolling(20).mean()
     bb_std = close.rolling(20).std()
 
-    bb_upper = bb_mid + (
-        2 * bb_std
+    bb_upper = bb_mid + 2 * bb_std
+    bb_lower = bb_mid - 2 * bb_std
+
+    bb_width = (
+        (bb_upper - bb_lower)
+        / bb_mid.replace(0, np.nan)
     )
 
-    bb_lower = bb_mid - (
-        2 * bb_std
-    )
-
-    band_width = (
-        bb_upper - bb_lower
-    ).replace(
-        0,
-        np.nan,
-    )
-
-    x["bb_position"] = (
+    bb_position = (
         (close - bb_lower)
-        / band_width
+        / (bb_upper - bb_lower).replace(0, np.nan)
     )
 
-    x["bb_width"] = (
-        band_width
-        / bb_mid.replace(
-            0,
-            np.nan,
-        )
-    )
+    x["bb_width"] = bb_width
+    x["bb_position"] = bb_position
 
-    # --------------------------------------------------------
-    # BREAKOUT
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
+    # BREAKOUTS
+    # ---------------------------------------------------------
 
-    previous_high_20 = (
-        high
-        .shift(1)
-        .rolling(20)
-        .max()
-    )
-
-    previous_low_20 = (
-        low
-        .shift(1)
-        .rolling(20)
-        .min()
-    )
+    previous_high_20 = high.shift(1).rolling(20).max()
+    previous_low_20 = low.shift(1).rolling(20).min()
 
     x["breakout_up"] = (
-        close /
-        previous_high_20 -
-        1
+        close / previous_high_20.replace(0, np.nan) - 1
     )
 
     x["breakout_down"] = (
-        close /
-        previous_low_20 -
-        1
+        close / previous_low_20.replace(0, np.nan) - 1
     )
 
-    # --------------------------------------------------------
-    # PRICE ACTION
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
+    # CANDLE / PRICE ACTION
+    # ---------------------------------------------------------
 
-    x["range_pct"] = (
-        (high - low)
-        /
-        close.replace(
-            0,
-            np.nan,
-        )
-    )
+    candle_range = (
+        high - low
+    ).replace(0, np.nan)
+
+    x["range_pct"] = candle_range / close.replace(0, np.nan)
 
     x["close_location"] = (
-        (close - low)
-        /
-        (high - low).replace(
-            0,
-            np.nan,
-        )
+        (close - low) / candle_range
     )
 
-    # --------------------------------------------------------
-    # VOLATILITY
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
+    # ADX-LIKE TREND STRENGTH
+    # ---------------------------------------------------------
 
-    x["atr_pct"] = (
-        atr /
-        close.replace(
-            0,
-            np.nan,
-        )
+    plus_move = high.diff()
+    minus_move = -low.diff()
+
+    plus_dm = plus_move.where(
+        (plus_move > minus_move) &
+        (plus_move > 0),
+        0
     )
 
-    x["volatility"] = (
-        close
-        .pct_change()
-        .rolling(30)
-        .std()
+    minus_dm = minus_move.where(
+        (minus_move > plus_move) &
+        (minus_move > 0),
+        0
     )
 
-    # --------------------------------------------------------
+    atr_safe = atr.replace(0, np.nan)
+
+    plus_di = (
+        100 * plus_dm.rolling(14).mean()
+        / atr_safe
+    )
+
+    minus_di = (
+        100 * minus_dm.rolling(14).mean()
+        / atr_safe
+    )
+
+    dx = (
+        100
+        * (plus_di - minus_di).abs()
+        / (plus_di + minus_di).replace(0, np.nan)
+    )
+
+    x["adx_like"] = dx.rolling(14).mean()
+
+    # ---------------------------------------------------------
     # VOLUME
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
 
-    volume_mean = (
-        volume
-        .rolling(30)
-        .mean()
-    )
-
-    volume_std = (
-        volume
-        .rolling(30)
-        .std()
-    )
+    volume_mean = volume.rolling(20).mean()
+    volume_std = volume.rolling(20).std()
 
     x["volume_z"] = (
         (volume - volume_mean)
-        /
-        volume_std.replace(
-            0,
-            np.nan,
-        )
+        / volume_std.replace(0, np.nan)
     )
 
     x["volume_ratio"] = (
-        volume /
-        volume_mean.replace(
-            0,
-            np.nan,
-        )
+        volume
+        / volume_mean.replace(0, np.nan)
     )
 
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
     # MACD
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
 
-    ema_12 = close.ewm(
-        span=12,
-        adjust=False,
-    ).mean()
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
 
-    ema_26 = close.ewm(
-        span=26,
-        adjust=False,
-    ).mean()
+    macd = ema12 - ema26
+    macd_signal = macd.ewm(span=9, adjust=False).mean()
 
-    macd_raw = (
-        ema_12 -
-        ema_26
-    )
-
-    macd_signal_raw = (
-        macd_raw
-        .ewm(
-            span=9,
-            adjust=False,
-        )
-        .mean()
-    )
-
-    x["macd"] = (
-        macd_raw /
-        close.replace(
-            0,
-            np.nan,
-        )
-    )
-
+    x["macd"] = macd / close.replace(0, np.nan)
     x["macd_signal"] = (
-        macd_signal_raw /
-        close.replace(
-            0,
-            np.nan,
-        )
+        macd_signal / close.replace(0, np.nan)
     )
-
     x["macd_hist"] = (
-        (macd_raw - macd_signal_raw)
-        /
-        close.replace(
-            0,
-            np.nan,
-        )
+        (macd - macd_signal)
+        / close.replace(0, np.nan)
     )
 
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
     # VWAP
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
 
     typical_price = (
-        high +
-        low +
-        close
+        high + low + close
     ) / 3
 
-    price_volume = (
-        typical_price *
-        volume
-    )
-
-    rolling_pv = (
-        price_volume
-        .rolling(30)
-        .sum()
-    )
-
-    rolling_volume = (
-        volume
-        .rolling(30)
-        .sum()
-    )
+    cumulative_volume = volume.cumsum()
 
     vwap = (
-        rolling_pv /
-        rolling_volume.replace(
-            0,
-            np.nan,
-        )
-    )
+        typical_price * volume
+    ).cumsum() / cumulative_volume.replace(0, np.nan)
 
     x["vwap_gap"] = (
-        close /
-        vwap -
-        1
+        close / vwap.replace(0, np.nan) - 1
     )
 
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
     # MARKET STRUCTURE
-    # --------------------------------------------------------
+    # ---------------------------------------------------------
+
+    rolling_high = high.rolling(20).max()
+    rolling_low = low.rolling(20).min()
 
     x["high_20_gap"] = (
-        close /
-        previous_high_20 -
-        1
+        close / rolling_high.replace(0, np.nan) - 1
     )
 
     x["low_20_gap"] = (
-        close /
-        previous_low_20 -
-        1
+        close / rolling_low.replace(0, np.nan) - 1
     )
 
-    return x.replace(
-        [
-            np.inf,
-            -np.inf,
-        ],
-        np.nan,
+    # Clean everything
+    x[FEATURES] = (
+        x[FEATURES]
+        .replace([np.inf, -np.inf], np.nan)
+        .fillna(0)
     )
 
+    return x
 
-# ============================================================
+
+# =============================================================
 # STRATEGY ENGINE
-# ============================================================
+# =============================================================
 
-def strategy_snapshot(
-    features: pd.DataFrame,
-) -> dict:
+def strategy_snapshot(df: pd.DataFrame) -> dict:
+    f = make_features(df)
 
-    r = features.iloc[-1]
+    latest = f.iloc[-1]
 
-    # --------------------------------------------------------
-    # MOMENTUM STRATEGY
-    # --------------------------------------------------------
+    votes = {}
 
-    momentum = np.mean(
-        [
-            np.sign(
-                float(
-                    r["ret_3"] or 0
-                )
-            ),
-            np.sign(
-                float(
-                    r["ret_6"] or 0
-                )
-            ),
-            np.sign(
-                float(
-                    r["roc_20"] or 0
-                )
-            ),
-        ]
+    # Momentum
+    momentum = (
+        latest["ret_3"] > 0
+        and latest["ret_6"] > 0
+        and latest["roc_20"] > 0
     )
 
-    # --------------------------------------------------------
-    # TREND STRATEGY
-    # --------------------------------------------------------
+    votes["momentum"] = 1 if momentum else -1
 
-    trend = np.mean(
-        [
-            np.sign(
-                float(
-                    r["ema_cross"] or 0
-                )
-            ),
-            np.sign(
-                float(
-                    r["trend_15"] or 0
-                )
-            ),
-            np.sign(
-                float(
-                    r["trend_30"] or 0
-                )
-            ),
-        ]
+    # Trend
+    trend = (
+        latest["ema_cross"] > 0
+        and latest["trend_15"] > 0
+        and latest["trend_30"] > 0
     )
 
-    # --------------------------------------------------------
-    # MEAN REVERSION
-    # --------------------------------------------------------
+    votes["trend"] = 1 if trend else -1
 
-    rsi = float(
-        r["rsi"]
-    )
-
-    bb_position = float(
-        r["bb_position"]
-    )
-
-    if (
-        rsi < 35
-        or bb_position < 0.15
-    ):
-        mean_reversion = 1.0
-
-    elif (
-        rsi > 65
-        or bb_position > 0.85
-    ):
-        mean_reversion = -1.0
-
+    # Mean reversion
+    if latest["rsi"] < 35:
+        mean_reversion = 1
+    elif latest["rsi"] > 65:
+        mean_reversion = -1
     else:
-        mean_reversion = 0.0
+        mean_reversion = 0
 
-    # --------------------------------------------------------
-    # BREAKOUT
-    # --------------------------------------------------------
+    votes["mean_reversion"] = mean_reversion
 
-    breakout = 0.0
+    # Breakout
+    if latest["breakout_up"] > 0:
+        breakout = 1
+    elif latest["breakout_down"] < 0:
+        breakout = -1
+    else:
+        breakout = 0
 
-    if (
-        float(
-            r["breakout_up"]
-            or 0
-        ) > 0
-    ):
-        breakout = 1.0
+    votes["breakout"] = breakout
 
-    elif (
-        float(
-            r["breakout_down"]
-            or 0
-        ) < 0
-    ):
-        breakout = -1.0
-
-    # --------------------------------------------------------
     # VWAP
-    # --------------------------------------------------------
-
-    vwap = np.sign(
-        float(
-            r["vwap_gap"] or 0
-        )
+    votes["vwap"] = (
+        1 if latest["vwap_gap"] > 0
+        else -1
     )
 
-    # --------------------------------------------------------
     # MACD
-    # --------------------------------------------------------
-
-    macd = np.sign(
-        float(
-            r["macd_hist"] or 0
-        )
+    votes["macd"] = (
+        1 if latest["macd_hist"] > 0
+        else -1
     )
 
-    # --------------------------------------------------------
-    # VOLUME
-    # --------------------------------------------------------
-
-    volume = np.sign(
-        float(
-            r["volume_z"] or 0
+    # Volume confirmation
+    if latest["volume_ratio"] > 1.2:
+        votes["volume"] = (
+            1
+            if latest["close_location"] > 0.5
+            else -1
         )
+    else:
+        votes["volume"] = 0
+
+    values = list(votes.values())
+
+    score = (
+        sum(values) / len(values)
+        if values
+        else 0
     )
 
-    strategy_values = [
-        momentum,
-        trend,
-        mean_reversion,
-        breakout,
-        vwap,
-        macd,
-        volume,
-    ]
-
-    strategy_score = float(
-        np.mean(strategy_values)
+    agreement = (
+        sum(1 for v in values if v > 0)
+        / len(values)
+        if values
+        else 0
     )
 
     return {
-        "momentum": float(momentum),
-        "trend": float(trend),
-        "mean_reversion": float(
-            mean_reversion
-        ),
-        "breakout": float(
-            breakout
-        ),
-        "vwap": float(vwap),
-        "macd": float(macd),
-        "volume": float(volume),
-        "strategy_score": strategy_score,
+        "votes": votes,
+        "strategy_score": float(score),
+        "strategy_agreement": float(agreement),
     }
 
 
-# ============================================================
+# =============================================================
 # MARKET REGIME
-# ============================================================
+# =============================================================
 
-def detect_regime(
-    features: pd.DataFrame,
-) -> str:
+def detect_regime(df: pd.DataFrame) -> str:
+    f = make_features(df)
+    latest = f.iloc[-1]
 
-    r = features.iloc[-1]
-
-    trend = abs(
-        float(
-            r["trend_30"] or 0
-        )
+    trend_strength = abs(
+        float(latest["trend_30"])
     )
 
-    volatility = float(
-        r["volatility"] or 0
+    volatility = abs(
+        float(latest["volatility"])
     )
 
-    adx = float(
-        r["adx_like"] or 0
-    )
-
-    if not math.isfinite(
-        volatility
-    ):
-        return "unknown"
-
-    if (
-        trend > 0.025
-        and adx > 0.25
-    ):
+    if trend_strength > 0.025:
         return "strong_trend"
 
     if volatility > 0.02:
         return "high_volatility"
 
-    if (
-        trend < 0.008
-        and volatility < 0.012
-    ):
+    if trend_strength < 0.008:
         return "range"
 
     return "mixed"
 
 
-# ============================================================
+# =============================================================
 # TRAINING DATA
-# ============================================================
+# =============================================================
 
 def build_training_set(
     df: pd.DataFrame,
-    horizon: int,
-    cost: float,
+    forecast_bars: int = 3,
+    cost: float = 0.0,
 ):
-
-    features = make_features(df)
+    f = make_features(df)
 
     future_return = (
-        df["close"].shift(
-            -horizon
-        )
-        /
-        df["close"]
+        f["close"]
+        .shift(-forecast_bars)
+        / f["close"]
         - 1
     )
 
-    # Positive class only when the expected move
-    # exceeds estimated trading costs.
-    target = (
-        future_return > cost
+    data = f[FEATURES].copy()
+
+    data["future_return"] = future_return
+
+    data = data.replace(
+        [np.inf, -np.inf],
+        np.nan
+    ).dropna()
+
+    if len(data) < 100:
+        raise ValueError(
+            f"Not enough training samples: {len(data)}"
+        )
+
+    # IMPORTANT:
+    # Train the classifier on direction.
+    #
+    # Profitability/cost is handled later by the trading
+    # decision engine. This prevents the training set from
+    # becoming 100% class 0 during quiet markets.
+    data["target"] = (
+        data["future_return"] > 0
     ).astype(int)
 
-    data = features[
-        FEATURES
-    ].copy()
+    X = data[FEATURES]
+    y = data["target"]
 
-    data["target"] = target
+    # Make absolutely sure both classes exist.
+    if y.nunique() < 2:
+        # Fall back to median split only when the market data
+        # is extraordinarily one-sided.
+        median_return = data["future_return"].median()
 
-    data = data.dropna()
+        y = (
+            data["future_return"] > median_return
+        ).astype(int)
 
-    if len(data) < 250:
-        return None, None
+    if y.nunique() < 2:
+        raise ValueError(
+            "Training data contains only one class."
+        )
 
     return (
-        data[FEATURES],
-        data["target"],
+        X,
+        y,
+        data["future_return"]
     )
 
 
-# ============================================================
+# =============================================================
 # MODEL STATE
-# ============================================================
+# =============================================================
 
 @dataclass
 class ModelState:
-
-    model: object | None = None
-
-    accuracy: float = 0.0
-
-    trained_at: float = 0.0
-
-    samples: int = 0
-
-    regime: str = "unknown"
-
-    strategy_weights: dict = field(
-        default_factory=dict
-    )
+    model: object
+    accuracy: float
+    trained_at: float
+    samples: int
+    regime: str
+    strategy_weights: dict = field(default_factory=dict)
 
 
-# ============================================================
-# TRAIN MULTI-MODEL ENSEMBLE
-# ============================================================
+# =============================================================
+# TRAIN MODEL
+# =============================================================
 
 def train_model(
     df: pd.DataFrame,
-    horizon: int,
-    cost: float,
+    forecast_bars: int = 3,
+    cost: float = 0.0,
 ) -> ModelState:
 
-    X, y = build_training_set(
+    X, y, future_returns = build_training_set(
         df,
-        horizon,
+        forecast_bars,
         cost,
     )
 
-    state = ModelState()
+    split = int(len(X) * 0.80)
 
-    if X is None:
-        return state
-
-    split = int(
-        len(X) * 0.80
-    )
-
-    if (
-        split < 150
-        or len(X) - split < 30
-    ):
-        return state
+    if split < 50:
+        raise ValueError(
+            "Not enough data for training split."
+        )
 
     X_train = X.iloc[:split]
     X_test = X.iloc[split:]
@@ -791,268 +555,207 @@ def train_model(
     y_train = y.iloc[:split]
     y_test = y.iloc[split:]
 
-    # --------------------------------------------------------
-    # MODEL 1: GRADIENT BOOSTING
-    # --------------------------------------------------------
+    # Make sure training itself has both classes.
+    if y_train.nunique() < 2:
+        raise ValueError(
+            "Training window contains only one class."
+        )
 
-    gradient = HistGradientBoostingClassifier(
-        max_iter=220,
-        learning_rate=0.045,
-        max_leaf_nodes=15,
-        l2_regularization=1.0,
-        random_state=42,
-    )
-
-    # --------------------------------------------------------
-    # MODEL 2: RANDOM FOREST
-    # --------------------------------------------------------
-
-    forest = RandomForestClassifier(
-        n_estimators=250,
-        max_depth=7,
-        min_samples_leaf=5,
-        class_weight="balanced_subsample",
-        random_state=42,
-        n_jobs=-1,
-    )
-
-    # --------------------------------------------------------
-    # MODEL 3: LOGISTIC REGRESSION
-    # --------------------------------------------------------
-
-    logistic = Pipeline(
-        [
-            (
-                "scale",
-                StandardScaler(),
+    # Make sure test has both classes when possible.
+    # If the final test section happens to contain one
+    # direction only, accuracy can still be calculated.
+    models = [
+        (
+            "hist",
+            HistGradientBoostingClassifier(
+                max_iter=150,
+                learning_rate=0.05,
+                max_leaf_nodes=15,
+                l2_regularization=1.0,
+                random_state=42,
             ),
-            (
-                "classifier",
-                LogisticRegression(
-                    C=0.35,
-                    max_iter=1000,
-                    class_weight="balanced",
-                ),
-            ),
-        ]
-    )
+        ),
 
-    # --------------------------------------------------------
-    # SOFT-VOTING ENSEMBLE
-    # --------------------------------------------------------
+        (
+            "rf",
+            RandomForestClassifier(
+                n_estimators=250,
+                max_depth=8,
+                min_samples_leaf=5,
+                class_weight="balanced",
+                random_state=42,
+                n_jobs=-1,
+            ),
+        ),
 
-    model = VotingClassifier(
-        estimators=[
-            (
-                "gradient",
-                gradient,
+        (
+            "logistic",
+            Pipeline(
+                [
+                    (
+                        "scale",
+                        StandardScaler()
+                    ),
+                    (
+                        "model",
+                        LogisticRegression(
+                            max_iter=1000,
+                            class_weight="balanced",
+                        ),
+                    ),
+                ]
             ),
-            (
-                "forest",
-                forest,
-            ),
-            (
-                "logistic",
-                logistic,
-            ),
-        ],
+        ),
+    ]
+
+    ensemble = VotingClassifier(
+        estimators=models,
         voting="soft",
-        weights=[
-            2,
-            2,
-            1,
-        ],
+        weights=[2, 2, 1],
+        flatten_transform=True,
     )
 
-    model.fit(
+    ensemble.fit(
         X_train,
-        y_train,
+        y_train
     )
 
-    predictions = model.predict(
-        X_test
-    )
+    predictions = ensemble.predict(X_test)
 
     accuracy = accuracy_score(
         y_test,
-        predictions,
+        predictions
     )
 
-    state.model = model
+    regime = detect_regime(df)
 
-    state.accuracy = float(
-        accuracy
+    snapshot = strategy_snapshot(df)
+
+    return ModelState(
+        model=ensemble,
+        accuracy=float(accuracy),
+        trained_at=time.time(),
+        samples=len(X),
+        regime=regime,
+        strategy_weights={
+            "strategy_score": snapshot["strategy_score"],
+            "strategy_agreement": snapshot[
+                "strategy_agreement"
+            ],
+        },
     )
 
-    state.trained_at = time.time()
 
-    state.samples = len(
-        X_train
-    )
-
-    features = make_features(
-        df
-    )
-
-    state.regime = detect_regime(
-        features
-    )
-
-    return state
-
-
-# ============================================================
+# =============================================================
 # PREDICTION
-# ============================================================
+# =============================================================
 
 def predict(
     state: ModelState,
     df: pd.DataFrame,
-    horizon: int,
+    forecast_bars: int = 3,
 ):
-
-    if state.model is None:
+    if state is None:
         return None
 
-    features = make_features(
-        df
-    )
+    features = make_features(df)
 
-    row = features[
-        FEATURES
-    ].tail(1)
-
-    if row.isna().any().any():
+    if len(features) < 2:
         return None
 
-    probabilities = (
-        state.model
-        .predict_proba(row)[0]
-    )
+    latest = features[FEATURES].iloc[
+        [-1]
+    ]
+
+    probabilities = state.model.predict_proba(
+        latest
+    )[0]
 
     classes = list(
         state.model.classes_
     )
 
     if 1 in classes:
-
-        p_up = float(
+        probability_up = float(
             probabilities[
                 classes.index(1)
             ]
         )
-
     else:
+        probability_up = 0.0
 
-        p_up = 0.5
-
-    volatility = float(
-        features[
-            "volatility"
-        ]
-        .tail(1)
-        .iloc[0]
+    # Estimate expected move from recent realized movement.
+    recent_returns = (
+        features["ret_1"]
+        .tail(30)
+        .dropna()
     )
 
-    if not math.isfinite(
-        volatility
-    ):
-        return None
-
-    # Estimate expected movement.
-    expected_move = max(
-        volatility
-        *
-        math.sqrt(
-            max(
-                1,
-                horizon
+    if len(recent_returns) == 0:
+        expected_move = 0.0
+    else:
+        expected_move = float(
+            recent_returns.std()
+            * np.sqrt(
+                max(1, forecast_bars)
             )
-        ),
-        0.0,
-    )
-
-    # Strategy-level confirmation.
-    strategies = strategy_snapshot(
-        features
-    )
-
-    strategy_score = float(
-        strategies[
-            "strategy_score"
-        ]
-    )
-
-    strategy_agreement = abs(
-        strategy_score
-    )
-
-    # Market regime.
-    regime = detect_regime(
-        features
-    )
-
-    # --------------------------------------------------------
-    # CONFIDENCE
-    # --------------------------------------------------------
-
-    model_confidence = (
-        abs(
-            p_up - 0.5
-        ) * 2
-    )
-
-    confidence = (
-        0.70 *
-        model_confidence
-        +
-        0.30 *
-        strategy_agreement
-    )
-
-    confidence = max(
-        0.0,
-        min(
-            1.0,
-            confidence
         )
+
+    snapshot = strategy_snapshot(df)
+
+    strategy_score = snapshot[
+        "strategy_score"
+    ]
+
+    agreement = snapshot[
+        "strategy_agreement"
+    ]
+
+    # Combine ML probability with strategy confirmation.
+    ml_score = (
+        probability_up - 0.5
+    ) * 2
+
+    combined_score = (
+        ml_score * 0.70
+        + strategy_score * 0.30
     )
 
-    # --------------------------------------------------------
-    # FINAL DIRECTION
-    # --------------------------------------------------------
-
-    if (
-        p_up >= 0.50
-        and strategy_score >= 0
-    ):
+    if combined_score > 0.10:
         direction = "LONG"
-
-    elif (
-        p_up < 0.50
-        and strategy_score <= 0
-    ):
+    elif combined_score < -0.10:
         direction = "SHORT"
-
     else:
         direction = "NEUTRAL"
 
+    confidence = abs(
+        combined_score
+    )
+
     return {
-        # Existing bot.py expects these:
-        "probability_up": p_up,
+        "probability_up": probability_up,
+
         "expected_move": expected_move,
 
-        # New intelligence:
         "direction": direction,
-        "confidence": float(
-            confidence
-        ),
-        "strategy_score": strategy_score,
-        "strategy_agreement": float(
-            strategy_agreement
-        ),
-        "regime": regime,
 
-        # Individual strategy information:
-        "strategies": strategies,
+        "confidence": float(
+            min(1.0, confidence)
+        ),
+
+        "strategy_score": float(
+            strategy_score
+        ),
+
+        "strategy_agreement": float(
+            agreement
+        ),
+
+        "regime": state.regime,
+
+        "accuracy": state.accuracy,
+
+        "samples": state.samples,
+
+        "strategies": snapshot["votes"],
     }
