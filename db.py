@@ -29,13 +29,15 @@ def get_risk(key, default=None):
     init_db()
 
     conn = db()
+
     row = conn.execute(
         "SELECT value FROM risk_state WHERE key=?",
         (key,)
     ).fetchone()
+
     conn.close()
 
-    if not row:
+    if row is None:
         return default
 
     return row["value"]
@@ -57,6 +59,5 @@ def set_risk(key, value):
     conn.close()
 
 
-# Make absolutely sure the database exists
-# before the bot is imported/started.
+# Initialize the database before the bot starts.
 init_db()
