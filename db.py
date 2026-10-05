@@ -73,7 +73,7 @@ def init_db():
         conn.close()
 
 
-def add_trade(x):
+def add_trade(data):
     conn = db()
 
     try:
@@ -95,15 +95,15 @@ def add_trade(x):
             """,
             (
                 time.time(),
-                x.get("symbol"),
-                x.get("side"),
-                x.get("price"),
-                x.get("amount"),
-                x.get("notional"),
-                x.get("pnl", 0),
-                x.get("status"),
-                x.get("mode"),
-                x.get("reason", ""),
+                data.get("symbol"),
+                data.get("side"),
+                data.get("price"),
+                data.get("amount"),
+                data.get("notional"),
+                data.get("pnl", 0),
+                data.get("status"),
+                data.get("mode"),
+                data.get("reason", ""),
             ),
         )
 
@@ -113,7 +113,7 @@ def add_trade(x):
         conn.close()
 
 
-def set_position(x):
+def set_position(data):
     conn = db()
 
     try:
@@ -131,13 +131,13 @@ def set_position(x):
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                x["symbol"],
-                x["entry_price"],
-                x["amount"],
-                x["notional"],
-                x["opened_ts"],
-                x["stop_price"],
-                x["target_price"],
+                data["symbol"],
+                data["entry_price"],
+                data["amount"],
+                data["notional"],
+                data["opened_ts"],
+                data["stop_price"],
+                data["target_price"],
             ),
         )
 
@@ -155,10 +155,7 @@ def get_positions():
             "SELECT * FROM positions"
         ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        return [dict(row) for row in rows]
 
     finally:
         conn.close()
@@ -232,11 +229,9 @@ def get_risk(key, default=None):
 
 
 def stats():
-
     conn = db()
 
     try:
-
         row = conn.execute(
             """
             SELECT
@@ -266,9 +261,7 @@ def stats():
             WHERE status='CLOSED'
             AND ts >= ?
             """,
-            (
-                time.time() - 86400,
-            ),
+            (time.time() - 86400,),
         ).fetchone()
 
         recent = conn.execute(
@@ -304,13 +297,10 @@ def stats():
     consecutive_losses = 0
 
     for trade in recent:
-
         if float(
             trade["pnl"] or 0
         ) < 0:
-
             consecutive_losses += 1
-
         else:
             break
 
@@ -336,8 +326,7 @@ def stats():
     )
 
     invested = float(
-        open_positions["invested"]
-        or 0
+        open_positions["invested"] or 0
     )
 
     equity = (
@@ -349,57 +338,43 @@ def stats():
         "pnl": float(
             row["pnl"] or 0
         ),
-
         "trades": total_trades,
-
         "wins": wins,
-
-        "losses": (
-            total_trades - wins
-        ),
-
+        "losses": total_trades - wins,
         "win_rate": (
             wins / total_trades
             if total_trades
             else 0
         ),
-
         "last_24h_pnl": float(
             today["pnl"] or 0
         ),
-
         "trades_24h": int(
             today["n"] or 0
         ),
-
         "consecutive_losses":
             consecutive_losses,
-
         "paper_start_balance":
             start_balance,
-
         "paper_balance":
             paper_balance,
-
         "paper_invested":
             invested,
-
         "paper_equity":
             equity,
-
         "realized_pnl":
             realized_pnl,
-
         "return_pct": (
             (
-                equity
-                - start_balance
-            )
-            / start_balance
+                equity - start_balance
+            ) / start_balance
             if start_balance
             else 0
         ),
     }
+
+
+init_db()
 
 
 init_db()
