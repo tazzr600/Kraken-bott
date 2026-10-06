@@ -7,16 +7,21 @@
 <title>KRAKEN BOT — AI Day Trader</title>
 
 <style>
-
 * {
     box-sizing: border-box;
 }
 
+html,
 body {
     margin: 0;
+    padding: 0;
     background: #07090d;
     color: #f4f6f8;
     font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+    min-height: 100vh;
 }
 
 .container {
@@ -136,6 +141,7 @@ header {
 .section-subtitle {
     color: #748092;
     font-size: 12px;
+    margin-top: 5px;
 }
 
 #chart {
@@ -260,13 +266,13 @@ tr:last-child td {
     padding: 14px;
 }
 
-.info-box .small-label {
+.small-label {
     color: #697587;
     font-size: 11px;
     margin-bottom: 6px;
 }
 
-.info-box .small-value {
+.small-value {
     font-size: 14px;
     font-weight: 600;
     word-break: break-word;
@@ -298,7 +304,6 @@ tr:last-child td {
 }
 
 @media (max-width: 1100px) {
-
     .cards {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -309,7 +314,6 @@ tr:last-child td {
 }
 
 @media (max-width: 650px) {
-
     .container {
         width: 94%;
         padding-top: 18px;
@@ -339,7 +343,6 @@ tr:last-child td {
         height: 250px;
     }
 }
-
 </style>
 </head>
 
@@ -347,677 +350,473 @@ tr:last-child td {
 
 <div class="container">
 
-    <!-- =====================================================
-         HEADER
-    ====================================================== -->
+<header>
+    <div class="brand">
+        <h1>KRAKEN BOT</h1>
+        <p>Full-market crypto scanner • ML day trading • paper performance</p>
+    </div>
 
-    <header>
+    <div id="statusBadge" class="status">
+        Connecting...
+    </div>
+</header>
 
-        <div class="brand">
 
-            <h1>KRAKEN BOT</h1>
+<!-- PERFORMANCE -->
 
-            <p>
-                Full-market crypto scanner • ML day trading • paper performance
-            </p>
+<div class="cards">
 
+    <div class="card">
+        <div class="label">Paper Equity</div>
+        <div id="equity" class="value">$1,000.00</div>
+    </div>
+
+    <div class="card">
+        <div class="label">Return</div>
+        <div id="return" class="value">0.00%</div>
+    </div>
+
+    <div class="card">
+        <div class="label">Available Cash</div>
+        <div id="cash" class="value">$1,000.00</div>
+    </div>
+
+    <div class="card">
+        <div class="label">Realized P&amp;L</div>
+        <div id="realized" class="value">$0.00</div>
+    </div>
+
+    <div class="card">
+        <div class="label">Win Rate</div>
+        <div id="winrate" class="value">0.00%</div>
+    </div>
+
+    <div class="card">
+        <div class="label">Liquid Markets</div>
+        <div id="markets" class="value">0</div>
+    </div>
+
+</div>
+
+
+<!-- EQUITY -->
+
+<div class="section">
+
+    <div class="section-header">
+
+        <div>
+            <h2 class="section-title">
+                Paper Equity Growth
+            </h2>
+
+            <div class="section-subtitle">
+                Simulated account value from bot performance
+            </div>
         </div>
 
-        <div id="statusBadge" class="status">
-            Connecting...
-        </div>
-
-    </header>
-
-
-    <!-- =====================================================
-         PERFORMANCE CARDS
-    ====================================================== -->
-
-    <div class="cards">
-
-        <div class="card">
-
-            <div class="label">
-                Paper Equity
-            </div>
-
-            <div id="equity" class="value">
-                $1,000.00
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="label">
-                Return
-            </div>
-
-            <div id="return" class="value">
-                0.00%
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="label">
-                Available Cash
-            </div>
-
-            <div id="cash" class="value">
-                $1,000.00
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="label">
-                Realized P&L
-            </div>
-
-            <div id="realized" class="value">
-                $0.00
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="label">
-                Win Rate
-            </div>
-
-            <div id="winrate" class="value">
-                0.00%
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="label">
-                Liquid Markets
-            </div>
-
-            <div id="markets" class="value">
-                0
-            </div>
-
+        <div id="chartInfo" class="section-subtitle">
+            Waiting for equity data...
         </div>
 
     </div>
 
+    <canvas id="chart"></canvas>
 
-    <!-- =====================================================
-         EQUITY CHART
-    ====================================================== -->
+</div>
 
-    <div class="section">
 
-        <div class="section-header">
+<!-- CONTROLS -->
 
-            <div>
+<div class="section">
 
-                <h2 class="section-title">
-                    Paper Equity Growth
-                </h2>
+    <div class="section-header">
 
-                <div class="section-subtitle">
-                    Simulated account value from bot performance
-                </div>
+        <div>
+            <h2 class="section-title">
+                Bot Controls
+            </h2>
 
+            <div class="section-subtitle">
+                Autonomous trading engine
             </div>
-
-            <div id="chartInfo" class="section-subtitle">
-                Waiting for equity data...
-            </div>
-
-        </div>
-
-        <canvas id="chart"></canvas>
-
-    </div>
-
-
-    <!-- =====================================================
-         BOT CONTROLS
-    ====================================================== -->
-
-    <div class="section">
-
-        <div class="section-header">
-
-            <div>
-
-                <h2 class="section-title">
-                    Bot Controls
-                </h2>
-
-                <div class="section-subtitle">
-                    Autonomous trading engine
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="controls">
-
-            <button
-                id="startButton"
-                class="primary"
-                onclick="startBot()"
-            >
-                Start Bot
-            </button>
-
-
-            <button
-                id="stopButton"
-                class="danger"
-                onclick="stopBot()"
-            >
-                Stop Bot
-            </button>
-
-
-            <button onclick="runScan()">
-                Run Full-Market Scan
-            </button>
-
-
-            <button onclick="refresh()">
-                Refresh
-            </button>
-
         </div>
 
     </div>
 
-
-    <!-- =====================================================
-         AI SIGNALS
-    ====================================================== -->
-
-    <div class="section">
-
-        <div class="section-header">
-
-            <div>
-
-                <h2 class="section-title">
-                    AI Market Signals
-                </h2>
-
-                <div class="section-subtitle">
-                    Kraken liquid markets ranked by ML + strategy engine
-                </div>
-
-            </div>
-
-            <div id="signalInfo" class="section-subtitle">
-                Loading...
-            </div>
-
-        </div>
-
-
-        <div class="table-wrap">
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Rank</th>
-                        <th>Market</th>
-                        <th>Price</th>
-                        <th>24h Volume</th>
-                        <th>Direction</th>
-                        <th>AI Prob.</th>
-                        <th>Expected Move</th>
-                        <th>Score</th>
-                        <th>Strategy</th>
-                        <th>Regime</th>
-                        <th>Trade</th>
-
-                    </tr>
-
-                </thead>
-
-
-                <tbody id="signals">
-
-                    <tr>
-
-                        <td
-                            colspan="11"
-                            class="empty"
-                        >
-                            Loading market signals...
-
-                        </td>
-
-                    </tr>
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </div>
-
-
-    <!-- =====================================================
-         POSITIONS
-    ====================================================== -->
-
-    <div class="section">
-
-        <div class="section-header">
-
-            <div>
-
-                <h2 class="section-title">
-                    Open Positions
-                </h2>
-
-                <div class="section-subtitle">
-                    Current bot positions
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="table-wrap">
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Market</th>
-                        <th>Entry</th>
-                        <th>Current</th>
-                        <th>Amount</th>
-                        <th>Stop</th>
-                        <th>Target</th>
-                        <th>P&L</th>
-                        <th>Opened</th>
-
-                    </tr>
-
-                </thead>
-
-
-                <tbody id="positions">
-
-                    <tr>
-
-                        <td
-                            colspan="8"
-                            class="empty"
-                        >
-                            No open positions
-
-                        </td>
-
-                    </tr>
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </div>
-
-
-    <!-- =====================================================
-         KRAKEN / SCANNER
-    ====================================================== -->
-
-    <div class="section">
-
-        <div class="section-header">
-
-            <div>
-
-                <h2 class="section-title">
-                    Kraken / Scanner
-                </h2>
-
-                <div class="section-subtitle">
-                    Live connection and market discovery status
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="info-grid">
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Kraken Connection
-                </div>
-
-                <div
-                    id="krakenConnection"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Authentication
-                </div>
-
-                <div
-                    id="krakenAuth"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Trading Mode
-                </div>
-
-                <div
-                    id="tradingMode"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Markets Loaded
-                </div>
-
-                <div
-                    id="marketsLoaded"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Tickers Received
-                </div>
-
-                <div
-                    id="tickersReceived"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Markets Sent to ML
-                </div>
-
-                <div
-                    id="marketsToML"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Allowed Quotes
-                </div>
-
-                <div
-                    id="allowedQuotes"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Last Scanner Refresh
-                </div>
-
-                <div
-                    id="lastScannerRefresh"
-                    class="small-value"
-                >
-                    —
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- =====================================================
-         PERFORMANCE DETAILS
-    ====================================================== -->
-
-    <div class="section">
-
-        <div class="section-header">
-
-            <div>
-
-                <h2 class="section-title">
-                    Performance Details
-                </h2>
-
-                <div class="section-subtitle">
-                    Risk and trading statistics
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="info-grid">
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Total Trades
-                </div>
-
-                <div
-                    id="totalTrades"
-                    class="small-value"
-                >
-                    0
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Wins / Losses
-                </div>
-
-                <div
-                    id="winsLosses"
-                    class="small-value"
-                >
-                    0 / 0
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Profit Factor
-                </div>
-
-                <div
-                    id="profitFactor"
-                    class="small-value"
-                >
-                    0.00
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Unrealized P&L
-                </div>
-
-                <div
-                    id="unrealized"
-                    class="small-value"
-                >
-                    $0.00
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    24h P&L
-                </div>
-
-                <div
-                    id="pnl24"
-                    class="small-value"
-                >
-                    $0.00
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    24h Trades
-                </div>
-
-                <div
-                    id="trades24"
-                    class="small-value"
-                >
-                    0
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Drawdown
-                </div>
-
-                <div
-                    id="drawdown"
-                    class="small-value"
-                >
-                    0.00%
-                </div>
-
-            </div>
-
-
-            <div class="info-box">
-
-                <div class="small-label">
-                    Consecutive Losses
-                </div>
-
-                <div
-                    id="consecutiveLosses"
-                    class="small-value"
-                >
-                    0
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="footer">
-
-        KRAKEN BOT • Automated AI day-trading engine • PAPER MODE
+    <div class="controls">
+
+        <button
+            id="startButton"
+            class="primary"
+            onclick="startBot()"
+        >
+            Start Bot
+        </button>
+
+        <button
+            id="stopButton"
+            class="danger"
+            onclick="stopBot()"
+        >
+            Stop Bot
+        </button>
+
+        <button onclick="runScan()">
+            Run Full-Market Scan
+        </button>
+
+        <button onclick="refresh()">
+            Refresh
+        </button>
 
     </div>
 
 </div>
 
 
+<!-- SIGNALS -->
+
+<div class="section">
+
+    <div class="section-header">
+
+        <div>
+            <h2 class="section-title">
+                AI Market Signals
+            </h2>
+
+            <div class="section-subtitle">
+                Kraken liquid markets ranked by ML + strategy engine
+            </div>
+        </div>
+
+        <div id="signalInfo" class="section-subtitle">
+            Loading...
+        </div>
+
+    </div>
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Market</th>
+                    <th>Price</th>
+                    <th>24h Volume</th>
+                    <th>Direction</th>
+                    <th>AI Prob.</th>
+                    <th>Expected Move</th>
+                    <th>Score</th>
+                    <th>Strategy</th>
+                    <th>Regime</th>
+                    <th>Trade</th>
+                </tr>
+            </thead>
+
+            <tbody id="signals">
+
+                <tr>
+                    <td colspan="11" class="empty">
+                        Loading market signals...
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<!-- POSITIONS -->
+
+<div class="section">
+
+    <div class="section-header">
+
+        <div>
+            <h2 class="section-title">
+                Open Positions
+            </h2>
+
+            <div class="section-subtitle">
+                Current bot positions
+            </div>
+        </div>
+
+    </div>
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Market</th>
+                    <th>Entry</th>
+                    <th>Current</th>
+                    <th>Amount</th>
+                    <th>Stop</th>
+                    <th>Target</th>
+                    <th>P&amp;L</th>
+                    <th>Opened</th>
+                </tr>
+            </thead>
+
+            <tbody id="positions">
+
+                <tr>
+                    <td colspan="8" class="empty">
+                        No open positions
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<!-- KRAKEN / SCANNER -->
+
+<div class="section">
+
+    <div class="section-header">
+
+        <div>
+            <h2 class="section-title">
+                Kraken / Scanner
+            </h2>
+
+            <div class="section-subtitle">
+                Live connection and market discovery status
+            </div>
+        </div>
+
+    </div>
+
+    <div class="info-grid">
+
+        <div class="info-box">
+            <div class="small-label">
+                Kraken Connection
+            </div>
+
+            <div id="krakenConnection" class="small-value">
+                —
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Authentication
+            </div>
+
+            <div id="krakenAuth" class="small-value">
+                —
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Trading Mode
+            </div>
+
+            <div id="tradingMode" class="small-value">
+                —
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Markets Loaded
+            </div>
+
+            <div id="marketsLoaded" class="small-value">
+                —
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Tickers Received
+            </div>
+
+            <div id="tickersReceived" class="small-value">
+                —
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Markets Sent to ML
+            </div>
+
+            <div id="marketsToML" class="small-value">
+                —
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Allowed Quotes
+            </div>
+
+            <div id="allowedQuotes" class="small-value">
+                —
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Last Scanner Refresh
+            </div>
+
+            <div id="lastScannerRefresh" class="small-value">
+                —
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- PERFORMANCE DETAILS -->
+
+<div class="section">
+
+    <div class="section-header">
+
+        <div>
+            <h2 class="section-title">
+                Performance Details
+            </h2>
+
+            <div class="section-subtitle">
+                Risk and trading statistics
+            </div>
+        </div>
+
+    </div>
+
+    <div class="info-grid">
+
+        <div class="info-box">
+            <div class="small-label">
+                Total Trades
+            </div>
+
+            <div id="totalTrades" class="small-value">
+                0
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Wins / Losses
+            </div>
+
+            <div id="winsLosses" class="small-value">
+                0 / 0
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Profit Factor
+            </div>
+
+            <div id="profitFactor" class="small-value">
+                0.00
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Unrealized P&amp;L
+            </div>
+
+            <div id="unrealized" class="small-value">
+                $0.00
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                24h P&amp;L
+            </div>
+
+            <div id="pnl24" class="small-value">
+                $0.00
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                24h Trades
+            </div>
+
+            <div id="trades24" class="small-value">
+                0
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Drawdown
+            </div>
+
+            <div id="drawdown" class="small-value">
+                0.00%
+            </div>
+        </div>
+
+        <div class="info-box">
+            <div class="small-label">
+                Consecutive Losses
+            </div>
+
+            <div id="consecutiveLosses" class="small-value">
+                0
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="footer">
+    KRAKEN BOT • Automated AI day-trading engine • PAPER MODE
+</div>
+
+</div>
+
+
+<!-- =========================================================
+     JAVASCRIPT STARTS HERE
+========================================================== -->
+
 <script>
 
-/* ============================================================
-   BASIC HELPERS
-============================================================ */
+"use strict";
 
-const $ = id =>
-    document.getElementById(id);
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const $ = (id) => document.getElementById(id);
 
 
 function money(value) {
@@ -1028,15 +827,12 @@ function money(value) {
         return "$0.00";
     }
 
-    return n.toLocaleString(
-        undefined,
-        {
-            style: "currency",
-            currency: "USD",
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }
-    );
+    return n.toLocaleString(undefined, {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
 
@@ -1048,23 +844,12 @@ function number(value, decimals = 2) {
         return "0";
     }
 
-    return n.toLocaleString(
-        undefined,
-        {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }
-    );
+    return n.toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
 }
 
-
-/*
- * Backend values are expected to be ratios.
- *
- * Example:
- *
- * 0.125 = 12.50%
- */
 
 function pct(value) {
 
@@ -1074,9 +859,7 @@ function pct(value) {
         return "0.00%";
     }
 
-    return (
-        n * 100
-    ).toFixed(2) + "%";
+    return (n * 100).toFixed(2) + "%";
 }
 
 
@@ -1133,6 +916,14 @@ function isTrue(value) {
         return true;
     }
 
+    if (value === false) {
+        return false;
+    }
+
+    if (typeof value === "number") {
+        return value === 1;
+    }
+
     if (typeof value === "string") {
 
         return [
@@ -1148,52 +939,41 @@ function isTrue(value) {
         );
     }
 
-    if (typeof value === "number") {
-        return value === 1;
-    }
-
     return false;
 }
 
 
-/* ============================================================
+/* =========================================================
    EQUITY CHART
-============================================================ */
+========================================================= */
 
 function drawEquity(history) {
-
-    /*
-     * NEVER allow invalid data to crash dashboard.
-     */
 
     if (!Array.isArray(history)) {
         history = [];
     }
 
+    const canvas = $("chart");
 
-    const canvas =
-        $("chart");
+    if (!canvas) {
+        return;
+    }
 
+    const rect = canvas.getBoundingClientRect();
 
-    const rect =
-        canvas.getBoundingClientRect();
+    const width = Math.max(rect.width, 300);
+    const height = Math.max(rect.height, 200);
 
+    const ratio = window.devicePixelRatio || 1;
 
-    const ratio =
-        window.devicePixelRatio || 1;
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
 
+    const ctx = canvas.getContext("2d");
 
-    canvas.width =
-        rect.width * ratio;
-
-
-    canvas.height =
-        rect.height * ratio;
-
-
-    const ctx =
-        canvas.getContext("2d");
-
+    if (!ctx) {
+        return;
+    }
 
     ctx.setTransform(
         ratio,
@@ -1204,15 +984,6 @@ function drawEquity(history) {
         0
     );
 
-
-    const width =
-        rect.width;
-
-
-    const height =
-        rect.height;
-
-
     ctx.clearRect(
         0,
         0,
@@ -1221,20 +992,11 @@ function drawEquity(history) {
     );
 
 
-    /*
-     * No data
-     */
-
     if (!history.length) {
 
-        ctx.fillStyle =
-            "#667384";
-
-        ctx.font =
-            "14px Arial";
-
-        ctx.textAlign =
-            "center";
+        ctx.fillStyle = "#667384";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
 
         ctx.fillText(
             "Waiting for equity snapshots...",
@@ -1249,42 +1011,36 @@ function drawEquity(history) {
     }
 
 
-    const values =
-        history
-            .map(item => {
+    const values = history
+        .map(item => {
 
-                if (
-                    item &&
-                    typeof item === "object"
-                ) {
+            if (
+                item &&
+                typeof item === "object"
+            ) {
 
-                    return Number(
-                        item.equity ??
-                        item.value ??
-                        item.paper_equity ??
-                        0
-                    );
-                }
+                return Number(
+                    item.equity ??
+                    item.value ??
+                    item.paper_equity ??
+                    0
+                );
+            }
 
-                return Number(item);
+            return Number(item);
 
-            })
-            .filter(
-                value =>
-                    Number.isFinite(value)
-            );
+        })
+        .filter(
+            value =>
+                Number.isFinite(value)
+        );
 
 
     if (!values.length) {
 
-        ctx.fillStyle =
-            "#667384";
-
-        ctx.font =
-            "14px Arial";
-
-        ctx.textAlign =
-            "center";
+        ctx.fillStyle = "#667384";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
 
         ctx.fillText(
             "Waiting for valid equity data...",
@@ -1299,17 +1055,10 @@ function drawEquity(history) {
     }
 
 
-    const minValue =
-        Math.min(...values);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
 
-
-    const maxValue =
-        Math.max(...values);
-
-
-    const padding =
-        45;
-
+    const padding = 45;
 
     const range =
         maxValue - minValue === 0
@@ -1320,30 +1069,16 @@ function drawEquity(history) {
             : maxValue - minValue;
 
 
-    /*
-     * GRID
-     */
+    /* GRID */
 
-    ctx.strokeStyle =
-        "#151d27";
+    ctx.strokeStyle = "#151d27";
+    ctx.lineWidth = 1;
 
-    ctx.lineWidth =
-        1;
-
-
-    for (
-        let i = 0;
-        i < 5;
-        i++
-    ) {
+    for (let i = 0; i < 5; i++) {
 
         const y =
             padding +
-            (
-                (height - padding * 2) /
-                4
-            ) * i;
-
+            ((height - padding * 2) / 4) * i;
 
         ctx.beginPath();
 
@@ -1361,38 +1096,21 @@ function drawEquity(history) {
     }
 
 
-    /*
-     * Y LABELS
-     */
+    /* Y LABELS */
 
-    ctx.fillStyle =
-        "#657182";
+    ctx.fillStyle = "#657182";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "left";
 
-    ctx.font =
-        "11px Arial";
-
-    ctx.textAlign =
-        "left";
-
-
-    for (
-        let i = 0;
-        i < 5;
-        i++
-    ) {
+    for (let i = 0; i < 5; i++) {
 
         const value =
             maxValue -
             (range / 4) * i;
 
-
         const y =
             padding +
-            (
-                (height - padding * 2) /
-                4
-            ) * i;
-
+            ((height - padding * 2) / 4) * i;
 
         ctx.fillText(
             money(value),
@@ -1402,12 +1120,9 @@ function drawEquity(history) {
     }
 
 
-    /*
-     * EQUITY LINE
-     */
+    /* LINE */
 
     ctx.beginPath();
-
 
     values.forEach(
         (value, index) => {
@@ -1426,7 +1141,6 @@ function drawEquity(history) {
                     padding * 2
                 );
 
-
             const y =
                 padding +
                 (
@@ -1438,49 +1152,26 @@ function drawEquity(history) {
                     padding * 2
                 );
 
-
             if (index === 0) {
-
-                ctx.moveTo(
-                    x,
-                    y
-                );
-
+                ctx.moveTo(x, y);
             } else {
-
-                ctx.lineTo(
-                    x,
-                    y
-                );
+                ctx.lineTo(x, y);
             }
-
         }
     );
 
-
-    ctx.strokeStyle =
-        "#f4f6f8";
-
-    ctx.lineWidth =
-        2;
-
+    ctx.strokeStyle = "#f4f6f8";
+    ctx.lineWidth = 2;
     ctx.stroke();
 
 
-    /*
-     * CURRENT POINT
-     */
+    /* CURRENT POINT */
 
     const lastValue =
-        values[
-            values.length - 1
-        ];
-
+        values[values.length - 1];
 
     const lastX =
-        width -
-        padding;
-
+        width - padding;
 
     const lastY =
         padding +
@@ -1493,9 +1184,7 @@ function drawEquity(history) {
             padding * 2
         );
 
-
     ctx.beginPath();
-
 
     ctx.arc(
         lastX,
@@ -1505,10 +1194,7 @@ function drawEquity(history) {
         Math.PI * 2
     );
 
-
-    ctx.fillStyle =
-        "#f4f6f8";
-
+    ctx.fillStyle = "#f4f6f8";
     ctx.fill();
 
 
@@ -1517,9 +1203,9 @@ function drawEquity(history) {
 }
 
 
-/* ============================================================
-   STATUS API
-============================================================ */
+/* =========================================================
+   STATUS
+========================================================= */
 
 async function refreshStatus() {
 
@@ -1531,7 +1217,6 @@ async function refreshStatus() {
             }
         );
 
-
     if (!response.ok) {
 
         throw new Error(
@@ -1540,10 +1225,8 @@ async function refreshStatus() {
         );
     }
 
-
     const data =
         await response.json();
-
 
     if (
         !data ||
@@ -1555,14 +1238,13 @@ async function refreshStatus() {
         );
     }
 
-
     return data;
 }
 
 
-/* ============================================================
+/* =========================================================
    PERFORMANCE
-============================================================ */
+========================================================= */
 
 async function refreshPerformance() {
 
@@ -1574,7 +1256,6 @@ async function refreshPerformance() {
             }
         );
 
-
     if (!response.ok) {
 
         throw new Error(
@@ -1582,23 +1263,9 @@ async function refreshPerformance() {
         );
     }
 
-
     const data =
         await response.json();
 
-
-    /*
-     * IMPORTANT:
-     *
-     * Backend returns:
-     *
-     * {
-     *   ok: true,
-     *   stats: {...}
-     * }
-     *
-     * Support both nested and flat.
-     */
 
     const d =
         data &&
@@ -1674,15 +1341,7 @@ async function refreshPerformance() {
 
 
     $("winsLosses").textContent =
-        `${number(
-            d.wins ??
-            0,
-            0
-        )} / ${number(
-            d.losses ??
-            0,
-            0
-        )}`;
+        `${number(d.wins ?? 0, 0)} / ${number(d.losses ?? 0, 0)}`;
 
 
     $("profitFactor").textContent =
@@ -1746,9 +1405,7 @@ async function refreshPerformance() {
         );
 
 
-    /*
-     * EQUITY
-     */
+    /* EQUITY */
 
     const historyResponse =
         await fetch(
@@ -1771,15 +1428,6 @@ async function refreshPerformance() {
         await historyResponse.json();
 
 
-    /*
-     * Backend returns:
-     *
-     * {
-     *   ok: true,
-     *   equity: [...]
-     * }
-     */
-
     const history =
         Array.isArray(historyData)
             ? historyData
@@ -1796,9 +1444,9 @@ async function refreshPerformance() {
 }
 
 
-/* ============================================================
+/* =========================================================
    SIGNALS
-============================================================ */
+========================================================= */
 
 async function refreshSignals() {
 
@@ -1827,9 +1475,7 @@ async function refreshSignals() {
         Array.isArray(data)
             ? data
             : (
-                Array.isArray(
-                    data.signals
-                )
+                Array.isArray(data.signals)
                     ? data.signals
                     : []
             );
@@ -1843,19 +1489,14 @@ async function refreshSignals() {
 
         body.innerHTML = `
             <tr>
-                <td
-                    colspan="11"
-                    class="empty"
-                >
+                <td colspan="11" class="empty">
                     No market signals available yet.
                 </td>
             </tr>
         `;
 
-
         $("signalInfo").textContent =
             "Waiting for scanner";
-
 
         return;
     }
@@ -1885,7 +1526,6 @@ async function refreshSignals() {
                     if (
                         direction === "LONG"
                     ) {
-
                         directionClass =
                             "long";
                     }
@@ -1894,7 +1534,6 @@ async function refreshSignals() {
                     if (
                         direction === "SHORT"
                     ) {
-
                         directionClass =
                             "short";
                     }
@@ -1968,62 +1607,40 @@ async function refreshSignals() {
                             </td>
 
                             <td>
-                                ${money(
-                                    volume
-                                )}
+                                ${money(volume)}
                             </td>
 
                             <td>
-
-                                <span
-                                    class="badge ${directionClass}"
-                                >
-                                    ${escapeHtml(
-                                        direction
-                                    )}
+                                <span class="badge ${directionClass}">
+                                    ${escapeHtml(direction)}
                                 </span>
-
                             </td>
 
                             <td>
-                                ${pct(
-                                    probability
-                                )}
+                                ${pct(probability)}
                             </td>
 
                             <td>
-                                ${pct(
-                                    expectedMove
-                                )}
+                                ${pct(expectedMove)}
                             </td>
 
                             <td>
-                                ${number(
-                                    score,
-                                    3
-                                )}
+                                ${number(score, 3)}
                             </td>
 
                             <td>
-                                ${number(
-                                    strategy,
-                                    3
-                                )}
+                                ${number(strategy, 3)}
                             </td>
 
                             <td>
-                                ${escapeHtml(
-                                    regime
-                                )}
+                                ${escapeHtml(regime)}
                             </td>
 
-                            <td
-                                class="${
-                                    tradeable
-                                        ? "tradeable"
-                                        : "not-tradeable"
-                                }"
-                            >
+                            <td class="${
+                                tradeable
+                                    ? "tradeable"
+                                    : "not-tradeable"
+                            }">
                                 ${
                                     tradeable
                                         ? "YES"
@@ -2033,16 +1650,15 @@ async function refreshSignals() {
 
                         </tr>
                     `;
-
                 }
             )
             .join("");
 }
 
 
-/* ============================================================
+/* =========================================================
    POSITIONS
-============================================================ */
+========================================================= */
 
 async function refreshPositions() {
 
@@ -2071,9 +1687,7 @@ async function refreshPositions() {
         Array.isArray(data)
             ? data
             : (
-                Array.isArray(
-                    data.positions
-                )
+                Array.isArray(data.positions)
                     ? data.positions
                     : []
             );
@@ -2087,10 +1701,7 @@ async function refreshPositions() {
 
         body.innerHTML = `
             <tr>
-                <td
-                    colspan="8"
-                    class="empty"
-                >
+                <td colspan="8" class="empty">
                     No open positions
                 </td>
             </tr>
@@ -2161,9 +1772,7 @@ async function refreshPositions() {
                                 )}
                             </td>
 
-                            <td
-                                class="${colorClass(pnl)}"
-                            >
+                            <td class="${colorClass(pnl)}">
                                 ${signedMoney(pnl)}
                             </td>
 
@@ -2177,32 +1786,23 @@ async function refreshPositions() {
 
                         </tr>
                     `;
-
                 }
             )
             .join("");
 }
 
 
-/* ============================================================
+/* =========================================================
    MAIN REFRESH
-============================================================ */
+========================================================= */
 
 async function refresh() {
 
     try {
 
-        /*
-         * GET UNIFIED STATUS
-         */
-
         const status =
             await refreshStatus();
 
-
-        /*
-         * KRAKEN
-         */
 
         const kraken =
             status.kraken &&
@@ -2211,20 +1811,12 @@ async function refresh() {
                 : {};
 
 
-        /*
-         * SCANNER
-         */
-
         const scanner =
             status.scanner &&
             typeof status.scanner === "object"
                 ? status.scanner
                 : {};
 
-
-        /*
-         * CONNECTION STATE
-         */
 
         const authenticated =
             isTrue(
@@ -2237,13 +1829,6 @@ async function refresh() {
                 kraken.connected
             );
 
-
-        /*
-         * IMPORTANT:
-         *
-         * Backend now supplies running
-         * at the TOP LEVEL.
-         */
 
         const running =
             isTrue(
@@ -2263,11 +1848,9 @@ async function refresh() {
             );
 
 
-        /*
-         * =====================================================
-         * TOP STATUS
-         * =====================================================
-         */
+        /* =====================================================
+           STATUS BADGE
+        ===================================================== */
 
         if (
             authenticated &&
@@ -2278,20 +1861,17 @@ async function refresh() {
             $("statusBadge").className =
                 "status online";
 
-
             $("statusBadge").textContent =
                 "Kraken Authenticated • Bot Running • PAPER";
 
         }
 
         else if (
-            authenticated &&
-            !running
+            authenticated
         ) {
 
             $("statusBadge").className =
                 "status online";
-
 
             $("statusBadge").textContent =
                 "Kraken Authenticated • Bot Stopped • PAPER";
@@ -2305,7 +1885,6 @@ async function refresh() {
             $("statusBadge").className =
                 "status warning";
 
-
             $("statusBadge").textContent =
                 "Kraken Connected • Authentication Pending";
 
@@ -2316,17 +1895,14 @@ async function refresh() {
             $("statusBadge").className =
                 "status error";
 
-
             $("statusBadge").textContent =
                 "Kraken Connection Error";
         }
 
 
-        /*
-         * =====================================================
-         * SCANNER / KRAKEN DISPLAY
-         * =====================================================
-         */
+        /* =====================================================
+           KRAKEN / SCANNER
+        ===================================================== */
 
         $("markets").textContent =
             number(
@@ -2409,11 +1985,6 @@ async function refresh() {
                 );
 
 
-        /*
-         * Scanner timestamp can be either
-         * seconds or milliseconds.
-         */
-
         if (
             scanner.last_refresh
         ) {
@@ -2447,7 +2018,6 @@ async function refresh() {
                 $("lastScannerRefresh")
                     .textContent =
                     "Available";
-
             }
 
         } else {
@@ -2458,17 +2028,9 @@ async function refresh() {
         }
 
 
-        /*
-         * =====================================================
-         * REFRESH DATA
-         * =====================================================
-         *
-         * Each section is handled independently.
-         *
-         * This prevents one failed endpoint from
-         * making the whole dashboard say
-         * "connection error".
-         */
+        /* =====================================================
+           LOAD DASHBOARD DATA
+        ===================================================== */
 
         const results =
             await Promise.allSettled([
@@ -2481,8 +2043,7 @@ async function refresh() {
         const failures =
             results.filter(
                 result =>
-                    result.status ===
-                    "rejected"
+                    result.status === "rejected"
             );
 
 
@@ -2494,25 +2055,25 @@ async function refresh() {
             );
 
 
-            /*
-             * API itself is alive.
-             */
-
-            $("statusBadge").className =
-                "status warning";
-
-
             if (
                 authenticated &&
                 running
             ) {
 
+                $("statusBadge").className =
+                    "status warning";
+
                 $("statusBadge").textContent =
                     "Bot Running • Some dashboard data unavailable";
 
-            } else if (
+            }
+
+            else if (
                 authenticated
             ) {
+
+                $("statusBadge").className =
+                    "status online";
 
                 $("statusBadge").textContent =
                     "Kraken Authenticated • Bot Stopped • PAPER";
@@ -2528,11 +2089,6 @@ async function refresh() {
         );
 
 
-        /*
-         * Only show true connection error
-         * when the main /api/status call fails.
-         */
-
         $("statusBadge").className =
             "status error";
 
@@ -2543,9 +2099,9 @@ async function refresh() {
 }
 
 
-/* ============================================================
+/* =========================================================
    START BOT
-============================================================ */
+========================================================= */
 
 async function startBot() {
 
@@ -2555,11 +2111,8 @@ async function startBot() {
 
     try {
 
-        button.disabled =
-            true;
-
-        button.textContent =
-            "Starting...";
+        button.disabled = true;
+        button.textContent = "Starting...";
 
 
         const response =
@@ -2598,12 +2151,6 @@ async function startBot() {
                 )
             );
 
-        } else {
-
-            console.log(
-                "BOT STARTED:",
-                data
-            );
         }
 
 
@@ -2625,18 +2172,15 @@ async function startBot() {
 
     } finally {
 
-        button.disabled =
-            false;
-
-        button.textContent =
-            "Start Bot";
+        button.disabled = false;
+        button.textContent = "Start Bot";
     }
 }
 
 
-/* ============================================================
+/* =========================================================
    STOP BOT
-============================================================ */
+========================================================= */
 
 async function stopBot() {
 
@@ -2646,11 +2190,8 @@ async function stopBot() {
 
     try {
 
-        button.disabled =
-            true;
-
-        button.textContent =
-            "Stopping...";
+        button.disabled = true;
+        button.textContent = "Stopping...";
 
 
         const response =
@@ -2695,18 +2236,15 @@ async function stopBot() {
 
     } finally {
 
-        button.disabled =
-            false;
-
-        button.textContent =
-            "Stop Bot";
+        button.disabled = false;
+        button.textContent = "Stop Bot";
     }
 }
 
 
-/* ============================================================
-   FULL MARKET SCAN
-============================================================ */
+/* =========================================================
+   MANUAL SCAN
+========================================================= */
 
 async function runScan() {
 
@@ -2782,9 +2320,9 @@ async function runScan() {
 }
 
 
-/* ============================================================
-   RESPONSIVE CHART
-============================================================ */
+/* =========================================================
+   WINDOW RESIZE
+========================================================= */
 
 window.addEventListener(
     "resize",
@@ -2798,21 +2336,20 @@ window.addEventListener(
                         error
                     )
             );
-
     }
 );
 
 
-/* ============================================================
-   START DASHBOARD
-============================================================ */
+/* =========================================================
+   INITIAL LOAD
+========================================================= */
 
 refresh();
 
 
-/*
- * Refresh every 5 seconds.
- */
+/* =========================================================
+   AUTOMATIC REFRESH
+========================================================= */
 
 setInterval(
     refresh,
