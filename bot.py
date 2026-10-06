@@ -59,11 +59,6 @@ class KrakenBot:
         # BOT STATE
         # =====================================================
 
-        # IMPORTANT:
-        # The previous version initialized this to False and
-        # run() immediately checked while self.running.
-        #
-        # run() now explicitly sets this to True as well.
         self.running = False
 
         self.last_scan = None
@@ -72,6 +67,18 @@ class KrakenBot:
         self.error = None
 
         self.signals = []
+
+        # =====================================================
+        # POSITION STATE
+        # =====================================================
+
+        self.position_signal = None
+        self.last_position_check = None
+        self.last_position_reason = None
+
+        # =====================================================
+        # RISK / COOLDOWN
+        # =====================================================
 
         self.cooldown_until = 0
 
@@ -85,7 +92,7 @@ class KrakenBot:
         self.scan_lock = threading.Lock()
 
         # =====================================================
-        # PAPER ACCOUNT INITIALIZATION
+        # PAPER ACCOUNT
         # =====================================================
 
         try:
@@ -193,6 +200,22 @@ class KrakenBot:
         )
 
     # =========================================================
+    # CURRENT POSITION
+    # =========================================================
+
+    @staticmethod
+    def _current_position():
+
+        positions = get_positions()
+
+        if not positions:
+
+            return None
+
+        # The strategy intentionally permits only ONE position.
+        return positions[0]
+
+    # =========================================================
     # RISK
     # =========================================================
 
@@ -234,9 +257,15 @@ class KrakenBot:
 
             if time.time() < self.cooldown_until:
 
+                remaining = (
+                    self.cooldown_until
+                    - time.time()
+                )
+
                 return (
                     False,
-                    "cooldown active",
+                    f"risk cooldown active "
+                    f"({remaining:.0f}s remaining)",
                 )
 
             return True, ""
@@ -574,15 +603,11 @@ class KrakenBot:
 
         reasons = []
 
-        # LONG ONLY
-
         if direction != "LONG":
 
             reasons.append(
                 f"direction={direction}"
             )
-
-        # PROBABILITY
 
         if (
             probability
@@ -594,16 +619,12 @@ class KrakenBot:
                 f"{probability:.3f}"
             )
 
-        # CONFIDENCE
-
         if confidence < 0.10:
 
             reasons.append(
                 f"confidence="
                 f"{confidence:.3f}"
             )
-
-        # EXPECTED MOVE
 
         if expected_move <= 0:
 
@@ -623,8 +644,6 @@ class KrakenBot:
                 f"{settings.min_expected_move:.4f}"
             )
 
-        # COST
-
         if (
             expected_move
             <= total_cost
@@ -635,8 +654,6 @@ class KrakenBot:
                 "trading cost"
             )
 
-        # STRATEGY
-
         if strategy_score < -0.10:
 
             reasons.append(
@@ -644,16 +661,12 @@ class KrakenBot:
                 f"{strategy_score:.3f}"
             )
 
-        # AGREEMENT
-
         if agreement < 0.35:
 
             reasons.append(
                 f"low strategy agreement="
                 f"{agreement:.3f}"
             )
-
-        # REWARD / RISK
 
         if reward_risk < 1.25:
 
@@ -802,8 +815,6 @@ class KrakenBot:
 
             for candidate in candidates:
 
-                # Allow Stop Bot to interrupt a large scan.
-
                 if not self.running:
 
                     print(
@@ -842,10 +853,6 @@ class KrakenBot:
                 reverse=True,
             )
 
-            # -------------------------------------------------
-            # ADD RANK
-            # -------------------------------------------------
-
             for index, signal in enumerate(
                 results,
                 start=1,
@@ -861,10 +868,6 @@ class KrakenBot:
                 f"AI RESULTS: "
                 f"{len(results)}"
             )
-
-            # -------------------------------------------------
-            # TOP SIGNALS
-            # -------------------------------------------------
 
             for signal in results[:10]:
 
@@ -910,6 +913,535 @@ class KrakenBot:
                 self.scan_in_progress = False
 
     # =========================================================
+    # CURRENT POSITION EDGE ANALYSIS
+    # =========================================================
+
+    async def analyze_current_position(
+        self,
+        position,
+    ):
+
+        symbol = position["symbol"]
+
+        print(
+            f"POSITION CHECK: {symbol}"
+        )
+
+        signal = await self.scan_symbol(
+            symbol
+        )
+
+        self.last_position_check = time.time()
+
+        if signal is None:
+
+            self.last_position_reason = (
+                "Unable to obtain a fresh AI signal."
+            )
+
+            print(
+                f"POSITION HOLD: {symbol} "
+                f"fresh analysis unavailable"
+            )
+
+            # We do NOT sell simply because one API/model
+            # check failed. The hard stop remains active.
+            return True
+
+        self.position_signal = signal
+
+        # -----------------------------------------------------
+        # Current price
+        # -----------------------------------------------------
+
+        current_price = float(
+            signal.get(
+                "bid",
+                signal.get(
+                    "last",
+                    0,
+                ),
+            )
+        )
+
+        entry_price = float(
+            position.get(
+                "entry_price",
+                0,
+            )
+        )
+
+        amount = float(
+            position.get(
+                "amount",
+                0,
+            )
+        )
+
+        unrealized_pnl = (
+            current_price
+            -
+            entry_price
+        ) * amount
+
+        # -----------------------------------------------------
+        # AI EDGE
+        # -----------------------------------------------------
+
+        probability = float(
+            signal.get(
+                "probability_up",
+                0,
+            )
+        )
+
+        expected_move = float(
+            signal.get(
+                "expected_move",
+                0,
+            )
+        )
+
+        strategy_score = float(
+            signal.get(
+                "strategy_score",
+                0,
+            )
+        )
+
+        agreement = float(
+            signal.get(
+                "strategy_agreement",
+                0,
+            )
+        )
+
+        confidence = float(
+            signal.get(
+                "confidence",
+                0,
+            )
+        )
+
+        direction = str(
+            signal.get(
+                "direction",
+                "NEUTRAL",
+            )
+        ).upper()
+
+        estimated_cost = float(
+            signal.get(
+                "cost_estimate",
+                0,
+            )
+        )
+
+        score = float(
+            signal.get(
+                "score",
+                0,
+            )
+        )
+
+        # -----------------------------------------------------
+        # EDGE CONDITIONS
+        # -----------------------------------------------------
+        #
+        # We intentionally use a little hysteresis here.
+        #
+        # Entry requires the stronger original filters.
+        # A position is not closed because probability simply
+        # moved from 0.70 to 0.59 for one noisy candle.
+        #
+        # We exit when the position's edge has materially
+        # deteriorated.
+        # -----------------------------------------------------
+
+        exit_reasons = []
+
+        # Direction reversal is a strong exit signal.
+
+        if direction != "LONG":
+
+            exit_reasons.append(
+                f"AI direction changed to {direction}"
+            )
+
+        # Expected move must at least cover estimated costs.
+
+        if expected_move <= estimated_cost:
+
+            exit_reasons.append(
+                "expected move no longer covers "
+                "estimated trading cost"
+            )
+
+        # Probability has fallen materially.
+
+        position_exit_probability = max(
+            0.50,
+            settings.min_probability - 0.05,
+        )
+
+        if (
+            probability
+            < position_exit_probability
+        ):
+
+            exit_reasons.append(
+                f"probability deteriorated to "
+                f"{probability:.3f}"
+            )
+
+        # Strategy has become meaningfully bearish.
+
+        if strategy_score < -0.10:
+
+            exit_reasons.append(
+                f"strategy turned bearish "
+                f"({strategy_score:.3f})"
+            )
+
+        # Agreement deterioration.
+
+        if agreement < 0.30:
+
+            exit_reasons.append(
+                f"strategy agreement deteriorated "
+                f"({agreement:.3f})"
+            )
+
+        # Confidence collapse.
+
+        if confidence < 0.08:
+
+            exit_reasons.append(
+                f"AI confidence deteriorated "
+                f"({confidence:.3f})"
+            )
+
+        # Score is no longer positive.
+
+        if score <= 0:
+
+            exit_reasons.append(
+                f"AI score became non-positive "
+                f"({score:.5f})"
+            )
+
+        # -----------------------------------------------------
+        # DECISION
+        # -----------------------------------------------------
+
+        if not exit_reasons:
+
+            self.last_position_reason = (
+                "Current trade still has positive AI edge."
+            )
+
+            print(
+                f"POSITION HOLD "
+                f"{symbol} "
+                f"PnL=${unrealized_pnl:.2f} "
+                f"prob={probability:.3f} "
+                f"move={expected_move:.4f} "
+                f"score={score:.5f}"
+            )
+
+            return True
+
+        # -----------------------------------------------------
+        # IMPORTANT:
+        #
+        # Require multiple independent deterioration signals
+        # before voluntarily exiting.
+        #
+        # A single weak metric should not cause unnecessary
+        # churn.
+        # -----------------------------------------------------
+
+        strong_exit = False
+
+        if direction != "LONG":
+
+            strong_exit = True
+
+        elif (
+            expected_move <= estimated_cost
+            and probability < position_exit_probability
+        ):
+
+            strong_exit = True
+
+        elif (
+            probability < position_exit_probability
+            and strategy_score < -0.10
+        ):
+
+            strong_exit = True
+
+        elif (
+            score <= 0
+            and expected_move <= estimated_cost
+        ):
+
+            strong_exit = True
+
+        elif len(exit_reasons) >= 3:
+
+            strong_exit = True
+
+        if not strong_exit:
+
+            self.last_position_reason = (
+                "Some AI metrics weakened, but the trade "
+                "has not lost enough edge to justify an exit."
+            )
+
+            print(
+                f"POSITION HOLD "
+                f"{symbol} "
+                f"edge weakening but not invalidated"
+            )
+
+            return True
+
+        self.last_position_reason = (
+            "; ".join(exit_reasons)
+        )
+
+        print(
+            f"POSITION EDGE LOST "
+            f"{symbol}: "
+            f"{self.last_position_reason}"
+        )
+
+        return False
+
+    # =========================================================
+    # EXIT CURRENT POSITION
+    # =========================================================
+
+    async def exit_position(
+        self,
+        position,
+        reason,
+        apply_cooldown=False,
+    ):
+
+        symbol = position["symbol"]
+
+        try:
+
+            ticker = await asyncio.to_thread(
+                self.kraken.fetch_ticker,
+                symbol,
+            )
+
+            market_price = float(
+                ticker.get("bid")
+                or ticker.get("last")
+                or 0
+            )
+
+            if market_price <= 0:
+
+                raise RuntimeError(
+                    f"Invalid market price for {symbol}."
+                )
+
+            result = await asyncio.to_thread(
+                self.kraken.market_sell,
+                symbol,
+                position["amount"],
+            )
+
+            exit_price = float(
+                result.get("price")
+                or market_price
+            )
+
+            amount = float(
+                position["amount"]
+            )
+
+            entry_price = float(
+                position["entry_price"]
+            )
+
+            exit_proceeds = (
+                exit_price * amount
+            )
+
+            entry_cost = (
+                entry_price * amount
+            )
+
+            pnl = (
+                exit_proceeds
+                -
+                entry_cost
+            )
+
+            # -------------------------------------------------
+            # RECORD TRADE
+            # -------------------------------------------------
+
+            add_trade({
+
+                "symbol":
+                    symbol,
+
+                "side":
+                    "SELL",
+
+                "price":
+                    exit_price,
+
+                "amount":
+                    amount,
+
+                "notional":
+                    exit_proceeds,
+
+                "pnl":
+                    pnl,
+
+                "status":
+                    "CLOSED",
+
+                "mode":
+                    (
+                        "DRY_RUN"
+                        if settings.dry_run
+                        else "LIVE"
+                    ),
+
+                "reason":
+                    reason,
+            })
+
+            # -------------------------------------------------
+            # PAPER ACCOUNT
+            # -------------------------------------------------
+
+            if settings.dry_run:
+
+                balance = float(
+                    get_risk(
+                        "paper_balance",
+                        settings.paper_start_balance,
+                    )
+                )
+
+                invested = float(
+                    get_risk(
+                        "paper_invested",
+                        0,
+                    )
+                )
+
+                realized = float(
+                    get_risk(
+                        "paper_realized_pnl",
+                        0,
+                    )
+                )
+
+                # IMPORTANT:
+                #
+                # The paper account receives the ACTUAL
+                # simulated sale proceeds.
+                #
+                # Do not add notional + pnl because that
+                # double-counts the original capital.
+
+                set_risk(
+                    "paper_balance",
+                    balance
+                    +
+                    exit_proceeds,
+                )
+
+                set_risk(
+                    "paper_invested",
+                    max(
+                        0,
+                        invested
+                        -
+                        entry_cost,
+                    ),
+                )
+
+                set_risk(
+                    "paper_realized_pnl",
+                    realized + pnl,
+                )
+
+            delete_position(
+                symbol
+            )
+
+            self.position_signal = None
+
+            self.last_position_reason = reason
+
+            print(
+                f"AI EXIT "
+                f"{symbol} "
+                f"reason={reason} "
+                f"entry=${entry_price:.8f} "
+                f"exit=${exit_price:.8f} "
+                f"PnL=${pnl:.2f}"
+            )
+
+            # -------------------------------------------------
+            # COOLDOWN
+            # -------------------------------------------------
+            #
+            # Normal AI edge exits do NOT use the cooldown.
+            #
+            # Emergency stop-loss exits can use it to prevent
+            # immediately jumping back into the same market.
+            # -------------------------------------------------
+
+            if apply_cooldown:
+
+                self.cooldown_until = (
+                    time.time()
+                    +
+                    settings.cooldown_minutes
+                    * 60
+                )
+
+            return {
+                "ok": True,
+                "symbol": symbol,
+                "exit_price": exit_price,
+                "amount": amount,
+                "pnl": pnl,
+                "reason": reason,
+            }
+
+        except Exception as exc:
+
+            self.error = (
+                "POSITION EXIT ERROR: "
+                f"{type(exc).__name__}: "
+                f"{exc}"
+            )
+
+            print(
+                self.error
+            )
+
+            return {
+                "ok": False,
+                "error": self.error,
+            }
+
+    # =========================================================
     # POSITION MANAGEMENT
     # =========================================================
 
@@ -919,211 +1451,126 @@ class KrakenBot:
 
         if not positions:
 
+            self.position_signal = None
+
             return
 
-        for position in positions:
+        # =====================================================
+        # SINGLE POSITION RULE
+        # =====================================================
 
-            if not self.running:
+        position = positions[0]
 
-                return
+        symbol = position["symbol"]
 
-            try:
+        # =====================================================
+        # CURRENT MARKET PRICE
+        # =====================================================
 
-                ticker = await asyncio.to_thread(
-                    self.kraken.fetch_ticker,
-                    position["symbol"],
-                )
+        try:
 
-                price = float(
-                    ticker.get("bid")
-                    or ticker.get("last")
-                    or 0
-                )
+            ticker = await asyncio.to_thread(
+                self.kraken.fetch_ticker,
+                symbol,
+            )
 
-                if price <= 0:
+            price = float(
+                ticker.get("bid")
+                or ticker.get("last")
+                or 0
+            )
 
-                    continue
+        except Exception as exc:
 
-                age = (
-                    time.time()
-                    -
-                    position["opened_ts"]
-                ) / 60
+            print(
+                f"POSITION PRICE ERROR {symbol}: "
+                f"{type(exc).__name__}: {exc}"
+            )
 
-                reason = None
+            return
 
-                if (
-                    price
-                    <= position["stop_price"]
-                ):
+        if price <= 0:
 
-                    reason = "stop_loss"
+            return
 
-                elif (
-                    price
-                    >= position["target_price"]
-                ):
+        # =====================================================
+        # EMERGENCY STOP LOSS
+        # =====================================================
+        #
+        # Stop loss remains an emergency protection mechanism.
+        #
+        # It is NOT a normal profit-taking mechanism.
+        # =====================================================
 
-                    reason = "take_profit"
+        if (
+            price
+            <= position["stop_price"]
+        ):
 
-                elif (
-                    age
-                    >= settings.max_hold_minutes
-                ):
+            reason = (
+                "emergency stop loss"
+            )
 
-                    reason = "time_exit"
+            await self.exit_position(
+                position,
+                reason,
+                apply_cooldown=True,
+            )
 
-                if not reason:
+            return
 
-                    continue
+        # =====================================================
+        # AI EDGE RE-EVALUATION
+        # =====================================================
 
-                # -------------------------------------------------
-                # SELL
-                # -------------------------------------------------
+        still_has_edge = (
+            await self.analyze_current_position(
+                position
+            )
+        )
 
-                result = await asyncio.to_thread(
-                    self.kraken.market_sell,
-                    position["symbol"],
-                    position["amount"],
-                )
+        if still_has_edge:
 
-                exit_price = float(
-                    result.get("price")
-                    or price
-                )
+            return
 
-                pnl = (
-                    exit_price
-                    -
-                    position["entry_price"]
-                ) * position["amount"]
+        # =====================================================
+        # EDGE LOST → EXIT
+        # =====================================================
 
-                # -------------------------------------------------
-                # RECORD TRADE
-                # -------------------------------------------------
+        reason = (
+            self.last_position_reason
+            or
+            "AI edge lost"
+        )
 
-                add_trade({
-
-                    "symbol":
-                        position["symbol"],
-
-                    "side":
-                        "SELL",
-
-                    "price":
-                        exit_price,
-
-                    "amount":
-                        position["amount"],
-
-                    "notional":
-                        exit_price
-                        *
-                        position["amount"],
-
-                    "pnl":
-                        pnl,
-
-                    "status":
-                        "CLOSED",
-
-                    "mode":
-                        (
-                            "DRY_RUN"
-                            if settings.dry_run
-                            else "LIVE"
-                        ),
-
-                    "reason":
-                        reason,
-                })
-
-                # -------------------------------------------------
-                # PAPER BALANCE
-                # -------------------------------------------------
-
-                if settings.dry_run:
-
-                    balance = float(
-                        get_risk(
-                            "paper_balance",
-                            settings.paper_start_balance,
-                        )
-                    )
-
-                    invested = float(
-                        get_risk(
-                            "paper_invested",
-                            0,
-                        )
-                    )
-
-                    realized = float(
-                        get_risk(
-                            "paper_realized_pnl",
-                            0,
-                        )
-                    )
-
-                    set_risk(
-                        "paper_balance",
-                        balance
-                        +
-                        position["notional"]
-                        +
-                        pnl,
-                    )
-
-                    set_risk(
-                        "paper_invested",
-                        max(
-                            0,
-                            invested
-                            -
-                            position["notional"],
-                        ),
-                    )
-
-                    set_risk(
-                        "paper_realized_pnl",
-                        realized + pnl,
-                    )
-
-                delete_position(
-                    position["symbol"]
-                )
-
-                self.cooldown_until = (
-                    time.time()
-                    +
-                    settings.cooldown_minutes
-                    * 60
-                )
-
-                print(
-                    f"EXIT "
-                    f"{position['symbol']} "
-                    f"{reason} "
-                    f"PnL={pnl:.2f}"
-                )
-
-            except Exception as exc:
-
-                self.error = (
-                    "POSITION ERROR: "
-                    f"{type(exc).__name__}: "
-                    f"{exc}"
-                )
-
-                print(
-                    self.error
-                )
+        await self.exit_position(
+            position,
+            reason,
+            apply_cooldown=False,
+        )
 
     # =========================================================
     # ENTER BEST TRADE
     # =========================================================
 
     async def maybe_enter_best(self):
+
+        # =====================================================
+        # NEVER ENTER WHILE A POSITION EXISTS
+        # =====================================================
+
+        existing_position = (
+            self._current_position()
+        )
+
+        if existing_position is not None:
+
+            print(
+                "ENTRY BLOCKED: "
+                "existing position is still open."
+            )
+
+            return
 
         if not self.running:
 
@@ -1148,9 +1595,9 @@ class KrakenBot:
 
             return
 
-        # -----------------------------------------------------
+        # =====================================================
         # QUALIFIED SIGNALS
-        # -----------------------------------------------------
+        # =====================================================
 
         candidates = [
 
@@ -1176,9 +1623,9 @@ class KrakenBot:
 
             return
 
-        # -----------------------------------------------------
+        # =====================================================
         # BEST SIGNAL
-        # -----------------------------------------------------
+        # =====================================================
 
         candidates.sort(
             key=lambda x: x.get(
@@ -1190,15 +1637,15 @@ class KrakenBot:
 
         best = candidates[0]
 
-        if self._position(
-            best["symbol"]
-        ):
+        symbol = best["symbol"]
+
+        if self._position(symbol):
 
             return
 
-        # -----------------------------------------------------
+        # =====================================================
         # CAPITAL
-        # -----------------------------------------------------
+        # =====================================================
 
         if settings.dry_run:
 
@@ -1251,15 +1698,15 @@ class KrakenBot:
 
             return
 
-        # -----------------------------------------------------
+        # =====================================================
         # BUY
-        # -----------------------------------------------------
+        # =====================================================
 
         try:
 
             result = await asyncio.to_thread(
                 self.kraken.market_buy,
-                best["symbol"],
+                symbol,
                 quote,
             )
 
@@ -1306,9 +1753,9 @@ class KrakenBot:
             entry * amount
         )
 
-        # -----------------------------------------------------
-        # RISK LEVELS
-        # -----------------------------------------------------
+        # =====================================================
+        # EMERGENCY STOP ONLY
+        # =====================================================
 
         stop_price = (
             entry
@@ -1320,24 +1767,18 @@ class KrakenBot:
             )
         )
 
-        target_price = (
-            entry
-            *
-            (
-                1
-                +
-                settings.take_profit_pct
-            )
-        )
-
-        # -----------------------------------------------------
+        # =====================================================
         # POSITION
-        # -----------------------------------------------------
+        # =====================================================
+        #
+        # We intentionally DO NOT create a fixed take-profit
+        # exit. The AI decides when the position has lost edge.
+        # =====================================================
 
         set_position({
 
             "symbol":
-                best["symbol"],
+                symbol,
 
             "entry_price":
                 entry,
@@ -1354,13 +1795,15 @@ class KrakenBot:
             "stop_price":
                 stop_price,
 
+            # Kept for compatibility with existing DB/schema.
+            # It is NOT used as an automatic exit trigger.
             "target_price":
-                target_price,
+                0,
         })
 
-        # -----------------------------------------------------
+        # =====================================================
         # PAPER BALANCE
-        # -----------------------------------------------------
+        # =====================================================
 
         if settings.dry_run:
 
@@ -1391,14 +1834,14 @@ class KrakenBot:
                 invested + notional,
             )
 
-        # -----------------------------------------------------
+        # =====================================================
         # RECORD ENTRY
-        # -----------------------------------------------------
+        # =====================================================
 
         add_trade({
 
             "symbol":
-                best["symbol"],
+                symbol,
 
             "side":
                 "BUY",
@@ -1424,7 +1867,7 @@ class KrakenBot:
 
             "reason":
                 (
-                    f"AI "
+                    f"AI ENTRY "
                     f"prob="
                     f"{best['probability_up']:.3f} "
                     f"confidence="
@@ -1434,14 +1877,29 @@ class KrakenBot:
                 ),
         })
 
+        self.position_signal = best
+
+        print("=" * 60)
+        print("AI ENTRY")
         print(
-            f"AI ENTRY "
-            f"{best['symbol']} "
-            f"price={entry:.8f} "
-            f"notional=${notional:.2f} "
-            f"stop={stop_price:.8f} "
-            f"target={target_price:.8f}"
+            f"SYMBOL: {symbol}"
         )
+        print(
+            f"PRICE: {entry:.8f}"
+        )
+        print(
+            f"NOTIONAL: ${notional:.2f}"
+        )
+        print(
+            f"STOP: {stop_price:.8f}"
+        )
+        print(
+            "TAKE PROFIT: AI CONTROLLED"
+        )
+        print(
+            "EXIT: WHEN CURRENT TRADE LOSES EDGE"
+        )
+        print("=" * 60)
 
     # =========================================================
     # EQUITY
@@ -1489,20 +1947,7 @@ class KrakenBot:
     async def run(self):
 
         # =====================================================
-        # CRITICAL FIX
-        # =====================================================
-        #
-        # The old version had:
-        #
-        #     self.running = False
-        #
-        # and then:
-        #
-        #     while self.running:
-        #
-        # This caused run() to immediately exit.
-        #
-        # Explicitly enable the bot when the worker enters run().
+        # START
         # =====================================================
 
         self.running = True
@@ -1518,8 +1963,12 @@ class KrakenBot:
             f"{settings.dry_run}"
         )
         print(
-            f"SCAN EVERY: "
-            f"{settings.scan_seconds} seconds"
+            "POSITION MODE: "
+            "ONE TRADE AT A TIME"
+        )
+        print(
+            "EXIT MODE: "
+            "AI EDGE LOSS + EMERGENCY STOP"
         )
         print("=" * 60)
 
@@ -1527,70 +1976,70 @@ class KrakenBot:
 
             while self.running:
 
-                # =================================================
-                # ONE AUTONOMOUS CYCLE
-                # =================================================
-
                 try:
 
-                    # -------------------------------------------------
-                    # MANAGE EXISTING POSITIONS
-                    # -------------------------------------------------
+                    # =================================================
+                    # POSITION FIRST
+                    # =================================================
+                    #
+                    # If we have a position, ONLY manage that position.
+                    #
+                    # We do NOT search for another trade.
+                    # =================================================
 
-                    await self.manage_positions()
+                    existing_position = (
+                        self._current_position()
+                    )
 
-                    if not self.running:
+                    if existing_position is not None:
 
-                        break
+                        await self.manage_positions()
 
-                    # -------------------------------------------------
-                    # MANUAL SCAN REQUEST
-                    # -------------------------------------------------
+                    else:
 
-                    if self.scan_requested:
+                        # =================================================
+                        # FLAT
+                        # =================================================
+                        #
+                        # Only when completely flat do we search
+                        # the market for the next opportunity.
+                        # =================================================
 
-                        print(
-                            "MANUAL SCAN REQUEST ACCEPTED"
-                        )
+                        if self.scan_requested:
 
-                    # -------------------------------------------------
-                    # FULL MARKET SCAN
-                    # -------------------------------------------------
+                            print(
+                                "MANUAL SCAN REQUEST ACCEPTED"
+                            )
 
-                    await self.scan()
+                        await self.scan()
 
-                    if not self.running:
+                        if not self.running:
 
-                        break
+                            break
 
-                    # -------------------------------------------------
-                    # AI TRADE SELECTION
-                    # -------------------------------------------------
+                        # -------------------------------------------------
+                        # ENTER ONLY ONE TRADE
+                        # -------------------------------------------------
 
-                    await self.maybe_enter_best()
+                        await self.maybe_enter_best()
 
-                    if not self.running:
-
-                        break
-
-                    # -------------------------------------------------
+                    # =================================================
                     # EQUITY
-                    # -------------------------------------------------
+                    # =================================================
 
-                    await self.mark_equity()
+                    if self.running:
 
-                    # Clear recoverable cycle error.
+                        await self.mark_equity()
 
-                    self.error = None
+                    # =================================================
+                    # CLEAR RECOVERABLE ERROR
+                    # =================================================
+
+                    if self.running:
+
+                        self.error = None
 
                 except Exception as exc:
-
-                    # -------------------------------------------------
-                    # IMPORTANT:
-                    #
-                    # A single bad market, API response, model
-                    # failure, etc. must NOT kill the entire bot.
-                    # -------------------------------------------------
 
                     self.error = (
                         f"BOT CYCLE ERROR: "
@@ -1602,10 +2051,8 @@ class KrakenBot:
                         self.error
                     )
 
-                    # Continue into the next cycle.
-
                 # =================================================
-                # WAIT BEFORE NEXT CYCLE
+                # NEXT CYCLE
                 # =================================================
 
                 if self.running:
@@ -1653,6 +2100,8 @@ class KrakenBot:
 
     def status(self):
 
+        position = self._current_position()
+
         return {
 
             "running":
@@ -1664,11 +2113,23 @@ class KrakenBot:
             "scan_requested":
                 bool(self.scan_requested),
 
+            "has_position":
+                position is not None,
+
+            "position":
+                position,
+
             "last_scan":
                 self.last_scan,
 
             "last_scan_error":
                 self.last_scan_error,
+
+            "last_position_check":
+                self.last_position_check,
+
+            "last_position_reason":
+                self.last_position_reason,
 
             "error":
                 self.error,
@@ -1711,6 +2172,8 @@ class KrakenBot:
 
     def scanner_status(self):
 
+        position = self._current_position()
+
         return {
 
             "running":
@@ -1722,11 +2185,27 @@ class KrakenBot:
             "scan_requested":
                 bool(self.scan_requested),
 
+            "has_position":
+                position is not None,
+
+            "position_symbol":
+                (
+                    position["symbol"]
+                    if position
+                    else None
+                ),
+
             "last_scan":
                 self.last_scan,
 
             "last_scan_error":
                 self.last_scan_error,
+
+            "last_position_check":
+                self.last_position_check,
+
+            "last_position_reason":
+                self.last_position_reason,
 
             "error":
                 self.error,
