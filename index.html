@@ -1,32 +1,1613 @@
-async function refreshPerformance() {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>KRAKEN BOT — AI Day Trader</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #07090d;
+    color: #f4f6f8;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.container {
+    width: min(1500px, 94%);
+    margin: 0 auto;
+    padding: 28px 0 50px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+}
+
+.brand h1 {
+    margin: 0;
+    font-size: 32px;
+    letter-spacing: 2px;
+}
+
+.brand p {
+    margin: 8px 0 0;
+    color: #8e98a7;
+    font-size: 14px;
+}
+
+.status {
+    border: 1px solid #26303d;
+    background: #0c1118;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #aeb8c6;
+}
+
+.status.online {
+    color: #8ff0b2;
+    border-color: #214d34;
+}
+
+.status.warning {
+    color: #ffd27a;
+    border-color: #59471e;
+}
+
+.status.error {
+    color: #ff9696;
+    border-color: #5b2525;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.card {
+    background: #0c1118;
+    border: 1px solid #1b2430;
+    border-radius: 12px;
+    padding: 18px;
+    min-height: 105px;
+}
+
+.label {
+    color: #7f8a99;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+}
+
+.value {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.positive {
+    color: #79e5a3;
+}
+
+.negative {
+    color: #ff7777;
+}
+
+.neutral {
+    color: #f4f6f8;
+}
+
+.section {
+    background: #0c1118;
+    border: 1px solid #1b2430;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 18px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.section-title {
+    margin: 0;
+    font-size: 17px;
+    letter-spacing: .5px;
+}
+
+.section-subtitle {
+    color: #748092;
+    font-size: 12px;
+}
+
+#chart {
+    width: 100%;
+    height: 320px;
+    display: block;
+    background: #080c12;
+    border-radius: 8px;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    border: 1px solid #2a3441;
+    background: #121923;
+    color: #f4f6f8;
+    border-radius: 8px;
+    padding: 11px 15px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+button:hover {
+    background: #192331;
+}
+
+button.primary {
+    background: #f4f6f8;
+    color: #07090d;
+    border-color: #f4f6f8;
+}
+
+button.danger {
+    color: #ff9a9a;
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+}
+
+th {
+    color: #6f7b8b;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    text-align: left;
+    padding: 11px 10px;
+    border-bottom: 1px solid #1c2530;
+}
+
+td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #131a23;
+    font-size: 13px;
+}
+
+tr:last-child td {
+    border-bottom: 0;
+}
+
+.symbol {
+    font-weight: 700;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+}
+
+.long {
+    color: #8ff0b2;
+    background: #102619;
+}
+
+.short {
+    color: #ff9696;
+    background: #291416;
+}
+
+.neutral-badge {
+    color: #b9c2ce;
+    background: #171d25;
+}
+
+.tradeable {
+    color: #8ff0b2;
+}
+
+.not-tradeable {
+    color: #777f8b;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.info-box {
+    background: #080c12;
+    border: 1px solid #18212c;
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.info-box .small-label {
+    color: #697587;
+    font-size: 11px;
+    margin-bottom: 6px;
+}
+
+.info-box .small-value {
+    font-size: 14px;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.empty {
+    color: #657182;
+    text-align: center;
+    padding: 30px;
+}
+
+.footer {
+    color: #586474;
+    text-align: center;
+    font-size: 11px;
+    margin-top: 25px;
+}
+
+.system-online {
+    color: #8ff0b2;
+}
+
+.system-offline {
+    color: #ff9696;
+}
+
+.system-warning {
+    color: #ffd27a;
+}
+
+@media (max-width: 1100px) {
+
+    .cards {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 650px) {
+
+    .container {
+        width: 94%;
+        padding-top: 18px;
+    }
+
+    .brand h1 {
+        font-size: 25px;
+    }
+
+    .cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card {
+        padding: 14px;
+    }
+
+    .value {
+        font-size: 20px;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #chart {
+        height: 250px;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <header>
+
+        <div class="brand">
+
+            <h1>KRAKEN BOT</h1>
+
+            <p>
+                Full-market crypto scanner • ML day trading • paper performance
+            </p>
+
+        </div>
+
+        <div id="statusBadge" class="status">
+            Connecting...
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         PERFORMANCE CARDS
+    ====================================================== -->
+
+    <div class="cards">
+
+        <div class="card">
+
+            <div class="label">
+                Paper Equity
+            </div>
+
+            <div id="equity" class="value">
+                $1,000.00
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Return
+            </div>
+
+            <div id="return" class="value">
+                0.00%
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Available Cash
+            </div>
+
+            <div id="cash" class="value">
+                $1,000.00
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Realized P&L
+            </div>
+
+            <div id="realized" class="value">
+                $0.00
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Win Rate
+            </div>
+
+            <div id="winrate" class="value">
+                0.00%
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Liquid Markets
+            </div>
+
+            <div id="markets" class="value">
+                0
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         EQUITY CHART
+    ====================================================== -->
+
+    <div class="section">
+
+        <div class="section-header">
+
+            <div>
+
+                <h2 class="section-title">
+                    Paper Equity Growth
+                </h2>
+
+                <div class="section-subtitle">
+                    Simulated account value from bot performance
+                </div>
+
+            </div>
+
+            <div id="chartInfo" class="section-subtitle">
+                Waiting for equity data...
+            </div>
+
+        </div>
+
+        <canvas id="chart"></canvas>
+
+    </div>
+
+
+    <!-- =====================================================
+         BOT CONTROLS
+    ====================================================== -->
+
+    <div class="section">
+
+        <div class="section-header">
+
+            <div>
+
+                <h2 class="section-title">
+                    Bot Controls
+                </h2>
+
+                <div class="section-subtitle">
+                    Autonomous trading engine
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="controls">
+
+            <button
+                id="startButton"
+                class="primary"
+                onclick="startBot()"
+            >
+                Start Bot
+            </button>
+
+
+            <button
+                id="stopButton"
+                class="danger"
+                onclick="stopBot()"
+            >
+                Stop Bot
+            </button>
+
+
+            <button onclick="runScan()">
+                Run Full-Market Scan
+            </button>
+
+
+            <button onclick="refresh()">
+                Refresh
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         AI SIGNALS
+    ====================================================== -->
+
+    <div class="section">
+
+        <div class="section-header">
+
+            <div>
+
+                <h2 class="section-title">
+                    AI Market Signals
+                </h2>
+
+                <div class="section-subtitle">
+                    Kraken liquid markets ranked by ML + strategy engine
+                </div>
+
+            </div>
+
+            <div id="signalInfo" class="section-subtitle">
+                Loading...
+            </div>
+
+        </div>
+
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Rank</th>
+                        <th>Market</th>
+                        <th>Price</th>
+                        <th>24h Volume</th>
+                        <th>Direction</th>
+                        <th>AI Prob.</th>
+                        <th>Expected Move</th>
+                        <th>Score</th>
+                        <th>Strategy</th>
+                        <th>Regime</th>
+                        <th>Trade</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="signals">
+
+                    <tr>
+
+                        <td
+                            colspan="11"
+                            class="empty"
+                        >
+                            Loading market signals...
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         POSITIONS
+    ====================================================== -->
+
+    <div class="section">
+
+        <div class="section-header">
+
+            <div>
+
+                <h2 class="section-title">
+                    Open Positions
+                </h2>
+
+                <div class="section-subtitle">
+                    Current bot positions
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Market</th>
+                        <th>Entry</th>
+                        <th>Current</th>
+                        <th>Amount</th>
+                        <th>Stop</th>
+                        <th>Target</th>
+                        <th>P&L</th>
+                        <th>Opened</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="positions">
+
+                    <tr>
+
+                        <td
+                            colspan="8"
+                            class="empty"
+                        >
+                            No open positions
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         KRAKEN / SCANNER
+    ====================================================== -->
+
+    <div class="section">
+
+        <div class="section-header">
+
+            <div>
+
+                <h2 class="section-title">
+                    Kraken / Scanner
+                </h2>
+
+                <div class="section-subtitle">
+                    Live connection and market discovery status
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="info-grid">
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Kraken Connection
+                </div>
+
+                <div
+                    id="krakenConnection"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Authentication
+                </div>
+
+                <div
+                    id="krakenAuth"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Trading Mode
+                </div>
+
+                <div
+                    id="tradingMode"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Markets Loaded
+                </div>
+
+                <div
+                    id="marketsLoaded"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Tickers Received
+                </div>
+
+                <div
+                    id="tickersReceived"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Markets Sent to ML
+                </div>
+
+                <div
+                    id="marketsToML"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Allowed Quotes
+                </div>
+
+                <div
+                    id="allowedQuotes"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Last Scanner Refresh
+                </div>
+
+                <div
+                    id="lastScannerRefresh"
+                    class="small-value"
+                >
+                    —
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         PERFORMANCE DETAILS
+    ====================================================== -->
+
+    <div class="section">
+
+        <div class="section-header">
+
+            <div>
+
+                <h2 class="section-title">
+                    Performance Details
+                </h2>
+
+                <div class="section-subtitle">
+                    Risk and trading statistics
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="info-grid">
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Total Trades
+                </div>
+
+                <div
+                    id="totalTrades"
+                    class="small-value"
+                >
+                    0
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Wins / Losses
+                </div>
+
+                <div
+                    id="winsLosses"
+                    class="small-value"
+                >
+                    0 / 0
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Profit Factor
+                </div>
+
+                <div
+                    id="profitFactor"
+                    class="small-value"
+                >
+                    0.00
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Unrealized P&L
+                </div>
+
+                <div
+                    id="unrealized"
+                    class="small-value"
+                >
+                    $0.00
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    24h P&L
+                </div>
+
+                <div
+                    id="pnl24"
+                    class="small-value"
+                >
+                    $0.00
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    24h Trades
+                </div>
+
+                <div
+                    id="trades24"
+                    class="small-value"
+                >
+                    0
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Drawdown
+                </div>
+
+                <div
+                    id="drawdown"
+                    class="small-value"
+                >
+                    0.00%
+                </div>
+
+            </div>
+
+
+            <div class="info-box">
+
+                <div class="small-label">
+                    Consecutive Losses
+                </div>
+
+                <div
+                    id="consecutiveLosses"
+                    class="small-value"
+                >
+                    0
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="footer">
+
+        KRAKEN BOT • Automated AI day-trading engine • PAPER MODE
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* ============================================================
+   BASIC HELPERS
+============================================================ */
+
+const $ = id =>
+    document.getElementById(id);
+
+
+function money(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "$0.00";
+    }
+
+    return n.toLocaleString(
+        undefined,
+        {
+            style: "currency",
+            currency: "USD",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    );
+}
+
+
+function number(value, decimals = 2) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "0";
+    }
+
+    return n.toLocaleString(
+        undefined,
+        {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }
+    );
+}
+
+
+/*
+ * Backend values are expected to be ratios.
+ *
+ * Example:
+ *
+ * 0.125 = 12.50%
+ */
+
+function pct(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "0.00%";
+    }
+
+    return (
+        n * 100
+    ).toFixed(2) + "%";
+}
+
+
+function signedMoney(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "$0.00";
+    }
+
+    if (n > 0) {
+        return "+" + money(n);
+    }
+
+    return money(n);
+}
+
+
+function colorClass(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "neutral";
+    }
+
+    if (n > 0) {
+        return "positive";
+    }
+
+    if (n < 0) {
+        return "negative";
+    }
+
+    return "neutral";
+}
+
+
+function escapeHtml(value) {
+
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+function isTrue(value) {
+
+    if (value === true) {
+        return true;
+    }
+
+    if (typeof value === "string") {
+
+        return [
+            "true",
+            "1",
+            "yes",
+            "connected",
+            "authenticated",
+            "online",
+            "running"
+        ].includes(
+            value.toLowerCase()
+        );
+    }
+
+    if (typeof value === "number") {
+        return value === 1;
+    }
+
+    return false;
+}
+
+
+/* ============================================================
+   EQUITY CHART
+============================================================ */
+
+function drawEquity(history) {
+
+    /*
+     * NEVER allow invalid data to crash dashboard.
+     */
+
+    if (!Array.isArray(history)) {
+        history = [];
+    }
+
+
+    const canvas =
+        $("chart");
+
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+
+    const ratio =
+        window.devicePixelRatio || 1;
+
+
+    canvas.width =
+        rect.width * ratio;
+
+
+    canvas.height =
+        rect.height * ratio;
+
+
+    const ctx =
+        canvas.getContext("2d");
+
+
+    ctx.setTransform(
+        ratio,
+        0,
+        0,
+        ratio,
+        0,
+        0
+    );
+
+
+    const width =
+        rect.width;
+
+
+    const height =
+        rect.height;
+
+
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    /*
+     * No data
+     */
+
+    if (!history.length) {
+
+        ctx.fillStyle =
+            "#667384";
+
+        ctx.font =
+            "14px Arial";
+
+        ctx.textAlign =
+            "center";
+
+        ctx.fillText(
+            "Waiting for equity snapshots...",
+            width / 2,
+            height / 2
+        );
+
+        $("chartInfo").textContent =
+            "The bot will populate this chart automatically.";
+
+        return;
+    }
+
+
+    const values =
+        history
+            .map(item => {
+
+                if (
+                    item &&
+                    typeof item === "object"
+                ) {
+
+                    return Number(
+                        item.equity ??
+                        item.value ??
+                        item.paper_equity ??
+                        0
+                    );
+                }
+
+                return Number(item);
+
+            })
+            .filter(
+                value =>
+                    Number.isFinite(value)
+            );
+
+
+    if (!values.length) {
+
+        ctx.fillStyle =
+            "#667384";
+
+        ctx.font =
+            "14px Arial";
+
+        ctx.textAlign =
+            "center";
+
+        ctx.fillText(
+            "Waiting for valid equity data...",
+            width / 2,
+            height / 2
+        );
+
+        $("chartInfo").textContent =
+            "No valid equity values.";
+
+        return;
+    }
+
+
+    const minValue =
+        Math.min(...values);
+
+
+    const maxValue =
+        Math.max(...values);
+
+
+    const padding =
+        45;
+
+
+    const range =
+        maxValue - minValue === 0
+            ? Math.max(
+                Math.abs(maxValue) * 0.01,
+                1
+            )
+            : maxValue - minValue;
+
+
+    /*
+     * GRID
+     */
+
+    ctx.strokeStyle =
+        "#151d27";
+
+    ctx.lineWidth =
+        1;
+
+
+    for (
+        let i = 0;
+        i < 5;
+        i++
+    ) {
+
+        const y =
+            padding +
+            (
+                (height - padding * 2) /
+                4
+            ) * i;
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            padding,
+            y
+        );
+
+        ctx.lineTo(
+            width - padding,
+            y
+        );
+
+        ctx.stroke();
+    }
+
+
+    /*
+     * Y LABELS
+     */
+
+    ctx.fillStyle =
+        "#657182";
+
+    ctx.font =
+        "11px Arial";
+
+    ctx.textAlign =
+        "left";
+
+
+    for (
+        let i = 0;
+        i < 5;
+        i++
+    ) {
+
+        const value =
+            maxValue -
+            (range / 4) * i;
+
+
+        const y =
+            padding +
+            (
+                (height - padding * 2) /
+                4
+            ) * i;
+
+
+        ctx.fillText(
+            money(value),
+            5,
+            y + 4
+        );
+    }
+
+
+    /*
+     * EQUITY LINE
+     */
+
+    ctx.beginPath();
+
+
+    values.forEach(
+        (value, index) => {
+
+            const x =
+                padding +
+                (
+                    index /
+                    Math.max(
+                        values.length - 1,
+                        1
+                    )
+                ) *
+                (
+                    width -
+                    padding * 2
+                );
+
+
+            const y =
+                padding +
+                (
+                    (maxValue - value) /
+                    range
+                ) *
+                (
+                    height -
+                    padding * 2
+                );
+
+
+            if (index === 0) {
+
+                ctx.moveTo(
+                    x,
+                    y
+                );
+
+            } else {
+
+                ctx.lineTo(
+                    x,
+                    y
+                );
+            }
+
+        }
+    );
+
+
+    ctx.strokeStyle =
+        "#f4f6f8";
+
+    ctx.lineWidth =
+        2;
+
+    ctx.stroke();
+
+
+    /*
+     * CURRENT POINT
+     */
+
+    const lastValue =
+        values[
+            values.length - 1
+        ];
+
+
+    const lastX =
+        width -
+        padding;
+
+
+    const lastY =
+        padding +
+        (
+            (maxValue - lastValue) /
+            range
+        ) *
+        (
+            height -
+            padding * 2
+        );
+
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+        lastX,
+        lastY,
+        4,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.fillStyle =
+        "#f4f6f8";
+
+    ctx.fill();
+
+
+    $("chartInfo").textContent =
+        `${values.length} snapshots • Current ${money(lastValue)}`;
+}
+
+
+/* ============================================================
+   STATUS API
+============================================================ */
+
+async function refreshStatus() {
 
     const response =
-        await fetch("/api/performance", {
-            cache: "no-store"
-        });
+        await fetch(
+            "/api/status",
+            {
+                cache: "no-store"
+            }
+        );
+
 
     if (!response.ok) {
-        throw new Error("Performance request failed");
+
+        throw new Error(
+            "Status request failed: HTTP " +
+            response.status
+        );
     }
+
 
     const data =
         await response.json();
 
+
+    if (
+        !data ||
+        typeof data !== "object"
+    ) {
+
+        throw new Error(
+            "Invalid status response"
+        );
+    }
+
+
+    return data;
+}
+
+
+/* ============================================================
+   PERFORMANCE
+============================================================ */
+
+async function refreshPerformance() {
+
+    const response =
+        await fetch(
+            "/api/performance",
+            {
+                cache: "no-store"
+            }
+        );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            "Performance request failed"
+        );
+    }
+
+
+    const data =
+        await response.json();
+
+
     /*
-     * Backend supports both:
+     * IMPORTANT:
+     *
+     * Backend returns:
      *
      * {
+     *   ok: true,
      *   stats: {...}
      * }
      *
-     * and flat statistics.
+     * Support both nested and flat.
      */
 
     const d =
+        data &&
         data.stats &&
         typeof data.stats === "object"
             ? data.stats
-            : data;
+            : (
+                data || {}
+            );
 
 
     $("equity").textContent =
@@ -56,6 +1637,7 @@ async function refreshPerformance() {
         money(
             d.paper_balance ??
             d.available_cash ??
+            d.cash ??
             0
         );
 
@@ -93,10 +1675,12 @@ async function refreshPerformance() {
 
     $("winsLosses").textContent =
         `${number(
-            d.wins ?? 0,
+            d.wins ??
+            0,
             0
         )} / ${number(
-            d.losses ?? 0,
+            d.losses ??
+            0,
             0
         )}`;
 
@@ -164,13 +1748,6 @@ async function refreshPerformance() {
 
     /*
      * EQUITY
-     *
-     * IMPORTANT:
-     * /api/equity returns:
-     *
-     * { ok: true, equity: [...] }
-     *
-     * We must extract .equity.
      */
 
     const historyResponse =
@@ -183,6 +1760,7 @@ async function refreshPerformance() {
 
 
     if (!historyResponse.ok) {
+
         throw new Error(
             "Equity request failed"
         );
@@ -192,6 +1770,15 @@ async function refreshPerformance() {
     const historyData =
         await historyResponse.json();
 
+
+    /*
+     * Backend returns:
+     *
+     * {
+     *   ok: true,
+     *   equity: [...]
+     * }
+     */
 
     const history =
         Array.isArray(historyData)
@@ -207,3 +1794,1032 @@ async function refreshPerformance() {
 
     drawEquity(history);
 }
+
+
+/* ============================================================
+   SIGNALS
+============================================================ */
+
+async function refreshSignals() {
+
+    const response =
+        await fetch(
+            "/api/signals",
+            {
+                cache: "no-store"
+            }
+        );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            "Signals request failed"
+        );
+    }
+
+
+    const data =
+        await response.json();
+
+
+    const signals =
+        Array.isArray(data)
+            ? data
+            : (
+                Array.isArray(
+                    data.signals
+                )
+                    ? data.signals
+                    : []
+            );
+
+
+    const body =
+        $("signals");
+
+
+    if (!signals.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td
+                    colspan="11"
+                    class="empty"
+                >
+                    No market signals available yet.
+                </td>
+            </tr>
+        `;
+
+
+        $("signalInfo").textContent =
+            "Waiting for scanner";
+
+
+        return;
+    }
+
+
+    $("signalInfo").textContent =
+        `${signals.length} markets analyzed`;
+
+
+    body.innerHTML =
+        signals
+            .map(
+                (s, index) => {
+
+                    const direction =
+                        String(
+                            s.direction ??
+                            s.prediction ??
+                            "NEUTRAL"
+                        ).toUpperCase();
+
+
+                    let directionClass =
+                        "neutral-badge";
+
+
+                    if (
+                        direction === "LONG"
+                    ) {
+
+                        directionClass =
+                            "long";
+                    }
+
+
+                    if (
+                        direction === "SHORT"
+                    ) {
+
+                        directionClass =
+                            "short";
+                    }
+
+
+                    const probability =
+                        s.probability ??
+                        s.ai_probability ??
+                        s.ml_probability ??
+                        0;
+
+
+                    const expectedMove =
+                        s.expected_move ??
+                        s.expected_move_pct ??
+                        0;
+
+
+                    const score =
+                        s.score ??
+                        s.combined_score ??
+                        0;
+
+
+                    const strategy =
+                        s.strategy_score ??
+                        s.strategy ??
+                        0;
+
+
+                    const regime =
+                        s.regime ??
+                        "—";
+
+
+                    const volume =
+                        s.quote_volume ??
+                        s.volume_24h ??
+                        0;
+
+
+                    const tradeable =
+                        isTrue(
+                            s.tradeable
+                        );
+
+
+                    return `
+                        <tr>
+
+                            <td>
+                                ${escapeHtml(
+                                    s.rank ??
+                                    index + 1
+                                )}
+                            </td>
+
+                            <td class="symbol">
+                                ${escapeHtml(
+                                    s.symbol ??
+                                    "—"
+                                )}
+                            </td>
+
+                            <td>
+                                ${money(
+                                    s.last ??
+                                    s.price ??
+                                    0
+                                )}
+                            </td>
+
+                            <td>
+                                ${money(
+                                    volume
+                                )}
+                            </td>
+
+                            <td>
+
+                                <span
+                                    class="badge ${directionClass}"
+                                >
+                                    ${escapeHtml(
+                                        direction
+                                    )}
+                                </span>
+
+                            </td>
+
+                            <td>
+                                ${pct(
+                                    probability
+                                )}
+                            </td>
+
+                            <td>
+                                ${pct(
+                                    expectedMove
+                                )}
+                            </td>
+
+                            <td>
+                                ${number(
+                                    score,
+                                    3
+                                )}
+                            </td>
+
+                            <td>
+                                ${number(
+                                    strategy,
+                                    3
+                                )}
+                            </td>
+
+                            <td>
+                                ${escapeHtml(
+                                    regime
+                                )}
+                            </td>
+
+                            <td
+                                class="${
+                                    tradeable
+                                        ? "tradeable"
+                                        : "not-tradeable"
+                                }"
+                            >
+                                ${
+                                    tradeable
+                                        ? "YES"
+                                        : "NO"
+                                }
+                            </td>
+
+                        </tr>
+                    `;
+
+                }
+            )
+            .join("");
+}
+
+
+/* ============================================================
+   POSITIONS
+============================================================ */
+
+async function refreshPositions() {
+
+    const response =
+        await fetch(
+            "/api/positions",
+            {
+                cache: "no-store"
+            }
+        );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            "Positions request failed"
+        );
+    }
+
+
+    const data =
+        await response.json();
+
+
+    const positions =
+        Array.isArray(data)
+            ? data
+            : (
+                Array.isArray(
+                    data.positions
+                )
+                    ? data.positions
+                    : []
+            );
+
+
+    const body =
+        $("positions");
+
+
+    if (!positions.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td
+                    colspan="8"
+                    class="empty"
+                >
+                    No open positions
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    body.innerHTML =
+        positions
+            .map(
+                p => {
+
+                    const pnl =
+                        p.unrealized_pnl ??
+                        p.pnl ??
+                        0;
+
+
+                    return `
+                        <tr>
+
+                            <td class="symbol">
+                                ${escapeHtml(
+                                    p.symbol ??
+                                    "—"
+                                )}
+                            </td>
+
+                            <td>
+                                ${money(
+                                    p.entry_price ??
+                                    p.entry ??
+                                    0
+                                )}
+                            </td>
+
+                            <td>
+                                ${money(
+                                    p.current_price ??
+                                    p.current ??
+                                    0
+                                )}
+                            </td>
+
+                            <td>
+                                ${number(
+                                    p.amount ??
+                                    0,
+                                    6
+                                )}
+                            </td>
+
+                            <td>
+                                ${money(
+                                    p.stop_loss ??
+                                    p.stop ??
+                                    0
+                                )}
+                            </td>
+
+                            <td>
+                                ${money(
+                                    p.take_profit ??
+                                    p.target ??
+                                    0
+                                )}
+                            </td>
+
+                            <td
+                                class="${colorClass(pnl)}"
+                            >
+                                ${signedMoney(pnl)}
+                            </td>
+
+                            <td>
+                                ${escapeHtml(
+                                    p.opened_at ??
+                                    p.timestamp ??
+                                    "—"
+                                )}
+                            </td>
+
+                        </tr>
+                    `;
+
+                }
+            )
+            .join("");
+}
+
+
+/* ============================================================
+   MAIN REFRESH
+============================================================ */
+
+async function refresh() {
+
+    try {
+
+        /*
+         * GET UNIFIED STATUS
+         */
+
+        const status =
+            await refreshStatus();
+
+
+        /*
+         * KRAKEN
+         */
+
+        const kraken =
+            status.kraken &&
+            typeof status.kraken === "object"
+                ? status.kraken
+                : {};
+
+
+        /*
+         * SCANNER
+         */
+
+        const scanner =
+            status.scanner &&
+            typeof status.scanner === "object"
+                ? status.scanner
+                : {};
+
+
+        /*
+         * CONNECTION STATE
+         */
+
+        const authenticated =
+            isTrue(
+                kraken.authenticated
+            );
+
+
+        const connected =
+            isTrue(
+                kraken.connected
+            );
+
+
+        /*
+         * IMPORTANT:
+         *
+         * Backend now supplies running
+         * at the TOP LEVEL.
+         */
+
+        const running =
+            isTrue(
+                status.running
+            ) ||
+            isTrue(
+                status.bot?.running
+            );
+
+
+        const workerAlive =
+            isTrue(
+                status.worker_alive
+            ) ||
+            isTrue(
+                status.bot?.worker_alive
+            );
+
+
+        /*
+         * =====================================================
+         * TOP STATUS
+         * =====================================================
+         */
+
+        if (
+            authenticated &&
+            running &&
+            workerAlive
+        ) {
+
+            $("statusBadge").className =
+                "status online";
+
+
+            $("statusBadge").textContent =
+                "Kraken Authenticated • Bot Running • PAPER";
+
+        }
+
+        else if (
+            authenticated &&
+            !running
+        ) {
+
+            $("statusBadge").className =
+                "status online";
+
+
+            $("statusBadge").textContent =
+                "Kraken Authenticated • Bot Stopped • PAPER";
+
+        }
+
+        else if (
+            connected
+        ) {
+
+            $("statusBadge").className =
+                "status warning";
+
+
+            $("statusBadge").textContent =
+                "Kraken Connected • Authentication Pending";
+
+        }
+
+        else {
+
+            $("statusBadge").className =
+                "status error";
+
+
+            $("statusBadge").textContent =
+                "Kraken Connection Error";
+        }
+
+
+        /*
+         * =====================================================
+         * SCANNER / KRAKEN DISPLAY
+         * =====================================================
+         */
+
+        $("markets").textContent =
+            number(
+                scanner.liquid_markets ??
+                0,
+                0
+            );
+
+
+        $("krakenConnection").textContent =
+            connected
+                ? "Connected"
+                : "Offline";
+
+
+        $("krakenConnection").className =
+            "small-value " +
+            (
+                connected
+                    ? "system-online"
+                    : "system-offline"
+            );
+
+
+        $("krakenAuth").textContent =
+            authenticated
+                ? "Authenticated"
+                : "Not authenticated";
+
+
+        $("krakenAuth").className =
+            "small-value " +
+            (
+                authenticated
+                    ? "system-online"
+                    : "system-warning"
+            );
+
+
+        $("tradingMode").textContent =
+            isTrue(
+                kraken.live_orders_enabled
+            )
+                ? "LIVE"
+                : "PAPER";
+
+
+        $("marketsLoaded").textContent =
+            number(
+                scanner.markets_loaded ??
+                0,
+                0
+            );
+
+
+        $("tickersReceived").textContent =
+            number(
+                scanner.tickers_received ??
+                0,
+                0
+            );
+
+
+        $("marketsToML").textContent =
+            number(
+                scanner.markets_sent_to_ml ??
+                0,
+                0
+            );
+
+
+        $("allowedQuotes").textContent =
+            Array.isArray(
+                scanner.allowed_quotes
+            )
+                ? scanner.allowed_quotes.join(", ")
+                : (
+                    scanner.allowed_quotes ??
+                    "—"
+                );
+
+
+        /*
+         * Scanner timestamp can be either
+         * seconds or milliseconds.
+         */
+
+        if (
+            scanner.last_refresh
+        ) {
+
+            let timestamp =
+                Number(
+                    scanner.last_refresh
+                );
+
+
+            if (
+                Number.isFinite(timestamp)
+            ) {
+
+                if (
+                    timestamp < 10000000000
+                ) {
+
+                    timestamp *= 1000;
+                }
+
+
+                $("lastScannerRefresh")
+                    .textContent =
+                    new Date(
+                        timestamp
+                    ).toLocaleString();
+
+            } else {
+
+                $("lastScannerRefresh")
+                    .textContent =
+                    "Available";
+
+            }
+
+        } else {
+
+            $("lastScannerRefresh")
+                .textContent =
+                "Waiting";
+        }
+
+
+        /*
+         * =====================================================
+         * REFRESH DATA
+         * =====================================================
+         *
+         * Each section is handled independently.
+         *
+         * This prevents one failed endpoint from
+         * making the whole dashboard say
+         * "connection error".
+         */
+
+        const results =
+            await Promise.allSettled([
+                refreshPerformance(),
+                refreshSignals(),
+                refreshPositions()
+            ]);
+
+
+        const failures =
+            results.filter(
+                result =>
+                    result.status ===
+                    "rejected"
+            );
+
+
+        if (failures.length) {
+
+            console.warn(
+                "Some dashboard data failed:",
+                failures
+            );
+
+
+            /*
+             * API itself is alive.
+             */
+
+            $("statusBadge").className =
+                "status warning";
+
+
+            if (
+                authenticated &&
+                running
+            ) {
+
+                $("statusBadge").textContent =
+                    "Bot Running • Some dashboard data unavailable";
+
+            } else if (
+                authenticated
+            ) {
+
+                $("statusBadge").textContent =
+                    "Kraken Authenticated • Bot Stopped • PAPER";
+            }
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "DASHBOARD STATUS ERROR:",
+            error
+        );
+
+
+        /*
+         * Only show true connection error
+         * when the main /api/status call fails.
+         */
+
+        $("statusBadge").className =
+            "status error";
+
+
+        $("statusBadge").textContent =
+            "Dashboard API connection error";
+    }
+}
+
+
+/* ============================================================
+   START BOT
+============================================================ */
+
+async function startBot() {
+
+    const button =
+        $("startButton");
+
+
+    try {
+
+        button.disabled =
+            true;
+
+        button.textContent =
+            "Starting...";
+
+
+        const response =
+            await fetch(
+                "/api/start",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    cache: "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "START RESPONSE:",
+            data
+        );
+
+
+        if (
+            data.ok !== true
+        ) {
+
+            alert(
+                "Bot could not start:\n\n" +
+                (
+                    data.error ??
+                    "Unknown error"
+                )
+            );
+
+        } else {
+
+            console.log(
+                "BOT STARTED:",
+                data
+            );
+        }
+
+
+        await refresh();
+
+
+    } catch (error) {
+
+        console.error(
+            "START ERROR:",
+            error
+        );
+
+
+        alert(
+            "Unable to start bot:\n\n" +
+            error.message
+        );
+
+    } finally {
+
+        button.disabled =
+            false;
+
+        button.textContent =
+            "Start Bot";
+    }
+}
+
+
+/* ============================================================
+   STOP BOT
+============================================================ */
+
+async function stopBot() {
+
+    const button =
+        $("stopButton");
+
+
+    try {
+
+        button.disabled =
+            true;
+
+        button.textContent =
+            "Stopping...";
+
+
+        const response =
+            await fetch(
+                "/api/stop",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    cache: "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "STOP RESPONSE:",
+            data
+        );
+
+
+        await refresh();
+
+
+    } catch (error) {
+
+        console.error(
+            "STOP ERROR:",
+            error
+        );
+
+
+        alert(
+            "Unable to stop bot:\n\n" +
+            error.message
+        );
+
+    } finally {
+
+        button.disabled =
+            false;
+
+        button.textContent =
+            "Stop Bot";
+    }
+}
+
+
+/* ============================================================
+   FULL MARKET SCAN
+============================================================ */
+
+async function runScan() {
+
+    try {
+
+        $("signalInfo").textContent =
+            "Running full-market scan...";
+
+
+        const response =
+            await fetch(
+                "/api/scan",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    cache: "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "SCAN RESPONSE:",
+            data
+        );
+
+
+        if (
+            data.ok !== true
+        ) {
+
+            $("signalInfo").textContent =
+                "Scan failed";
+
+            alert(
+                "Scan failed:\n\n" +
+                (
+                    data.error ??
+                    "Unknown error"
+                )
+            );
+
+            return;
+        }
+
+
+        await refresh();
+
+
+    } catch (error) {
+
+        console.error(
+            "SCAN ERROR:",
+            error
+        );
+
+
+        $("signalInfo").textContent =
+            "Scan failed";
+
+
+        alert(
+            "Scan failed:\n\n" +
+            error.message
+        );
+    }
+}
+
+
+/* ============================================================
+   RESPONSIVE CHART
+============================================================ */
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        refreshPerformance()
+            .catch(
+                error =>
+                    console.warn(
+                        "Chart refresh error:",
+                        error
+                    )
+            );
+
+    }
+);
+
+
+/* ============================================================
+   START DASHBOARD
+============================================================ */
+
+refresh();
+
+
+/*
+ * Refresh every 5 seconds.
+ */
+
+setInterval(
+    refresh,
+    5000
+);
+
+</script>
+
+</body>
+</html>
