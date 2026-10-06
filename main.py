@@ -17,7 +17,7 @@ from config import settings
 
 
 # ============================================================
-# DATABASE FIRST
+# DATABASE
 # ============================================================
 
 db.init_db()
@@ -29,7 +29,7 @@ db.init_db()
 
 app = FastAPI(
     title="KRAKEN BOT",
-    version="2.0",
+    version="2.1",
 )
 
 app.add_middleware(
@@ -47,9 +47,9 @@ app.add_middleware(
 
 bot = KrakenBot()
 
-bot_thread = None
-worker_error = None
-worker_started_at = None
+bot_thread: threading.Thread | None = None
+worker_error: str | None = None
+worker_started_at: float | None = None
 
 worker_lock = threading.Lock()
 
@@ -90,27 +90,21 @@ def json_safe(value: Any):
     if hasattr(value, "item"):
 
         try:
-            return json_safe(
-                value.item()
-            )
+            return json_safe(value.item())
         except Exception:
             pass
 
     if hasattr(value, "_asdict"):
 
         try:
-            return json_safe(
-                value._asdict()
-            )
+            return json_safe(value._asdict())
         except Exception:
             pass
 
     if hasattr(value, "__dict__"):
 
         try:
-            return json_safe(
-                vars(value)
-            )
+            return json_safe(vars(value))
         except Exception:
             pass
 
@@ -121,7 +115,7 @@ def json_safe(value: Any):
 # WORKER
 # ============================================================
 
-def worker_alive():
+def worker_alive() -> bool:
 
     return bool(
         bot_thread
@@ -144,6 +138,7 @@ def start_bot_thread():
             return {
                 "started": False,
                 "already_running": True,
+                "worker_alive": True,
             }
 
         worker_error = None
@@ -162,8 +157,6 @@ def start_bot_thread():
                 print("BOT THREAD: STARTING")
                 print("=" * 60)
 
-                # IMPORTANT:
-                # bot.run() is async.
                 asyncio.run(
                     bot.run()
                 )
@@ -171,8 +164,7 @@ def start_bot_thread():
             except Exception as exc:
 
                 worker_error = (
-                    f"{type(exc).__name__}: "
-                    f"{exc}"
+                    f"{type(exc).__name__}: {exc}"
                 )
 
                 print(
@@ -203,6 +195,7 @@ def start_bot_thread():
         return {
             "started": worker_alive(),
             "already_running": False,
+            "worker_alive": worker_alive(),
         }
 
 
@@ -217,18 +210,21 @@ def startup():
     print("KRAKEN BOT STARTING")
     print("=" * 60)
 
+    # --------------------------------------------------------
+    # DATABASE
+    # --------------------------------------------------------
+
     try:
 
         db.init_db()
 
-        print(
-            "DATABASE: OK"
-        )
+        print("DATABASE: OK")
 
     except Exception as exc:
 
         print(
             "DATABASE ERROR:",
+            type(exc).__name__,
             exc,
         )
 
@@ -238,9 +234,7 @@ def startup():
 
     try:
 
-        connection = (
-            bot.kraken.test_connection()
-        )
+        connection = bot.kraken.test_connection()
 
         print(
             "KRAKEN CONNECTION:",
@@ -270,18 +264,17 @@ def startup():
             authentication,
         )
 
-        # Automatically start when authenticated.
         if (
             settings.autonomous
-            and authentication.get(
-                "authenticated"
-            )
+            and isinstance(authentication, dict)
+            and authentication.get("authenticated") is True
         ):
 
-            start_bot_thread()
+            result = start_bot_thread()
 
             print(
-                "AUTONOMOUS BOT: STARTED"
+                "AUTONOMOUS BOT START RESULT:",
+                result,
             )
 
     except Exception as exc:
@@ -322,12 +315,14 @@ def health():
 @app.get("/api/health")
 def api_health():
 
-    return json_safe({
-        "ok": True,
-        "running": bot.running,
-        "worker_alive": worker_alive(),
-        "worker_error": worker_error,
-    })
+    return JSONResponse(
+        content=json_safe({
+            "ok": True,
+            "running": bool(bot.running),
+            "worker_alive": worker_alive(),
+            "worker_error": worker_error,
+        })
+    )
 
 
 # ============================================================
@@ -337,9 +332,16 @@ def api_health():
 @app.get("/api/status")
 def status():
 
+    # --------------------------------------------------------
+    # DATABASE
+    # --------------------------------------------------------
+
     try:
 
         statistics = db.stats()
+
+        if not isinstance(statistics, dict):
+            statistics = {}
 
     except Exception as exc:
 
@@ -351,12 +353,48 @@ def status():
             "realized_pnl": 0,
             "return_pct": 0,
             "win_rate": 0,
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "profit_factor": 0,
+            "unrealized_pnl": 0,
+            "last_24h_pnl": 0,
+            "last_24h_trades": 0,
+            "drawdown_pct": 0,
+            "consecutive_losses": 0,
             "error": str(exc),
         }
+
+    # --------------------------------------------------------
+    # KRAKEN
+    # --------------------------------------------------------
+
+    try:
+
+        kraken_status = bot.kraken.connection_status()
+
+        if not isinstance(kraken_status, dict):
+            kraken_status = {}
+
+    except Exception as exc:
+
+        kraken_status = {
+            "connected": False,
+            "authenticated": False,
+            "live_orders_enabled": False,
+            "error": str(exc),
+        }
+
+    # --------------------------------------------------------
+    # SCANNER
+    # --------------------------------------------------------
 
     try:
 
         scanner = bot.scanner.status()
+
+        if not isinstance(scanner, dict):
+            scanner = {}
 
     except Exception as exc:
 
@@ -365,25 +403,42 @@ def status():
             "tickers_received": 0,
             "liquid_markets": 0,
             "markets_sent_to_ml": 0,
-            "last_error":
-                str(exc),
+            "last_error": str(exc),
         }
+
+    # --------------------------------------------------------
+    # EQUITY
+    # --------------------------------------------------------
 
     try:
 
         equity = db.equity_history(240)
 
+        if not isinstance(equity, list):
+            equity = []
+
     except Exception:
 
         equity = []
+
+    # --------------------------------------------------------
+    # POSITIONS
+    # --------------------------------------------------------
 
     try:
 
         positions = db.get_positions()
 
+        if not isinstance(positions, list):
+            positions = []
+
     except Exception:
 
         positions = []
+
+    # --------------------------------------------------------
+    # SIGNALS
+    # --------------------------------------------------------
 
     signals = getattr(
         bot,
@@ -391,59 +446,77 @@ def status():
         [],
     )
 
+    if not isinstance(signals, list):
+        signals = []
+
+    # --------------------------------------------------------
+    # UNIFIED STATUS
+    # --------------------------------------------------------
+
+    running = bool(bot.running)
+    alive = worker_alive()
+
     response = {
 
         "ok": True,
 
-        "running":
-            bool(bot.running),
+        # FRONTEND COMPATIBILITY
+        "running": running,
 
-        "worker_alive":
-            worker_alive(),
+        "worker_alive": alive,
 
-        "worker_error":
-            worker_error,
+        "worker_error": worker_error,
 
-        "mode":
-            (
-                "LIVE"
-                if bot.kraken.live_orders_enabled
-                else "PAPER"
-            ),
+        # ALSO PROVIDE BOT OBJECT
+        "bot": {
+            "running": running,
+            "worker_alive": alive,
+            "worker_error": worker_error,
+            "started_at": worker_started_at,
+        },
 
-        "autonomous":
-            settings.autonomous,
+        # MODE
+        "mode": (
+            "LIVE"
+            if bot.kraken.live_orders_enabled
+            else "PAPER"
+        ),
 
-        "kraken":
-            bot.kraken.connection_status(),
+        "autonomous": bool(
+            settings.autonomous
+        ),
 
-        "scanner":
-            scanner,
+        # KRAKEN
+        "kraken": kraken_status,
 
-        "stats":
-            statistics,
+        # SCANNER
+        "scanner": scanner,
 
-        "signals":
-            signals,
+        # PERFORMANCE
+        "stats": statistics,
 
-        "last_signals":
-            signals,
+        # SIGNALS
+        "signals": signals,
 
-        "positions":
-            positions,
+        "last_signals": signals,
 
-        "equity":
-            equity,
+        # POSITIONS
+        "positions": positions,
 
-        "last_scan":
-            bot.last_scan,
+        # EQUITY
+        "equity": equity,
+
+        # SCANNER TIMESTAMP
+        "last_scan": getattr(
+            bot,
+            "last_scan",
+            None,
+        ),
 
     }
 
     return JSONResponse(
-        content=json_safe(
-            response
-        )
+        content=json_safe(response)
     )
 
 
@@ -456,13 +529,40 @@ def start():
 
     try:
 
-        print(
-            "START BOT REQUEST"
-        )
+        print("=" * 60)
+        print("START BOT REQUEST")
+        print("=" * 60)
 
+        # Already running
+        if worker_alive():
+
+            bot.running = True
+
+            return JSONResponse(
+                content=json_safe({
+                    "ok": True,
+                    "started": False,
+                    "already_running": True,
+                    "running": True,
+                    "worker_alive": True,
+                    "message": "Bot is already running.",
+                })
+            )
+
+        # Test Kraken authentication
         authentication = (
             bot.kraken.test_authentication()
         )
+
+        if not isinstance(
+            authentication,
+            dict
+        ):
+
+            authentication = {
+                "authenticated": False,
+                "error": "Invalid authentication response",
+            }
 
         if not authentication.get(
             "authenticated"
@@ -472,24 +572,32 @@ def start():
                 content=json_safe({
                     "ok": False,
                     "started": False,
+                    "running": False,
+                    "worker_alive": False,
                     "error":
                         authentication.get(
                             "error",
-                            "Kraken authentication failed",
+                            "Kraken authentication failed.",
                         ),
                 })
             )
 
         result = start_bot_thread()
 
+        running = bool(bot.running)
+        alive = worker_alive()
+
         return JSONResponse(
             content=json_safe({
                 "ok": True,
                 **result,
-                "running":
-                    bot.running,
-                "worker_alive":
-                    worker_alive(),
+                "running": running,
+                "worker_alive": alive,
+                "message": (
+                    "Bot started."
+                    if alive
+                    else "Bot failed to start."
+                ),
             })
         )
 
@@ -518,13 +626,28 @@ def start():
 @app.post("/api/stop")
 def stop():
 
-    bot.running = False
+    try:
 
-    return {
-        "ok": True,
-        "running": False,
-        "message": "Bot stopped",
-    }
+        bot.running = False
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": True,
+                "running": False,
+                "worker_alive": worker_alive(),
+                "message": "Bot stopped",
+            })
+        )
+
+    except Exception as exc:
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": False,
+                "running": False,
+                "error": str(exc),
+            })
+        )
 
 
 # ============================================================
@@ -539,6 +662,9 @@ def scan():
         result = asyncio.run(
             bot.scan()
         )
+
+        if result is None:
+            result = []
 
         return JSONResponse(
             content=json_safe({
@@ -557,6 +683,8 @@ def scan():
             content=json_safe({
                 "ok": False,
                 "signals": [],
+                "markets": [],
+                "count": 0,
                 "error":
                     f"{type(exc).__name__}: {exc}",
             })
@@ -590,13 +718,29 @@ def signals():
 @app.get("/api/positions")
 def positions():
 
-    return JSONResponse(
-        content=json_safe({
-            "ok": True,
-            "positions":
-                db.get_positions(),
-        })
-    )
+    try:
+
+        data = db.get_positions()
+
+        if not isinstance(data, list):
+            data = []
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": True,
+                "positions": data,
+            })
+        )
+
+    except Exception as exc:
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": False,
+                "positions": [],
+                "error": str(exc),
+            })
+        )
 
 
 # ============================================================
@@ -606,13 +750,29 @@ def positions():
 @app.get("/api/equity")
 def equity():
 
-    return JSONResponse(
-        content=json_safe({
-            "ok": True,
-            "equity":
-                db.equity_history(500),
-        })
-    )
+    try:
+
+        data = db.equity_history(500)
+
+        if not isinstance(data, list):
+            data = []
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": True,
+                "equity": data,
+            })
+        )
+
+    except Exception as exc:
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": False,
+                "equity": [],
+                "error": str(exc),
+            })
+        )
 
 
 # ============================================================
@@ -622,13 +782,35 @@ def equity():
 @app.get("/api/performance")
 def performance():
 
-    return JSONResponse(
-        content=json_safe({
-            "ok": True,
-            "stats":
-                db.stats(),
-        })
-    )
+    try:
+
+        statistics = db.stats()
+
+        if not isinstance(statistics, dict):
+            statistics = {}
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": True,
+
+                # Keep nested version
+                "stats": statistics,
+
+                # Also expose flat fields
+                # for dashboard compatibility
+                **statistics,
+            })
+        )
+
+    except Exception as exc:
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": False,
+                "stats": {},
+                "error": str(exc),
+            })
+        )
 
 
 # ============================================================
@@ -638,13 +820,29 @@ def performance():
 @app.get("/api/scanner")
 def scanner():
 
-    return JSONResponse(
-        content=json_safe({
-            "ok": True,
-            "scanner":
-                bot.scanner.status(),
-        })
-    )
+    try:
+
+        data = bot.scanner.status()
+
+        if not isinstance(data, dict):
+            data = {}
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": True,
+                "scanner": data,
+            })
+        )
+
+    except Exception as exc:
+
+        return JSONResponse(
+            content=json_safe({
+                "ok": False,
+                "scanner": {},
+                "error": str(exc),
+            })
+        )
 
 
 # ============================================================
@@ -654,17 +852,59 @@ def scanner():
 @app.get("/api/kraken/test")
 def kraken_test():
 
+    try:
+
+        connection = (
+            bot.kraken.test_connection()
+        )
+
+    except Exception as exc:
+
+        connection = {
+            "connected": False,
+            "error": str(exc),
+        }
+
+    try:
+
+        authentication = (
+            bot.kraken.test_authentication()
+        )
+
+    except Exception as exc:
+
+        authentication = {
+            "authenticated": False,
+            "error": str(exc),
+        }
+
+    try:
+
+        kraken_status = (
+            bot.kraken.connection_status()
+        )
+
+    except Exception as exc:
+
+        kraken_status = {
+            "connected": False,
+            "authenticated": False,
+            "error": str(exc),
+        }
+
     return JSONResponse(
         content=json_safe({
 
+            "ok": True,
+
             "connection":
-                bot.kraken.test_connection(),
+                connection,
 
             "authentication":
-                bot.kraken.test_authentication(),
+                authentication,
 
             "status":
-                bot.kraken.connection_status(),
+                kraken_status,
 
         })
     )
@@ -677,33 +917,48 @@ def kraken_test():
 @app.get("/api/debug")
 def debug():
 
-    return json_safe({
+    try:
+        kraken_status = (
+            bot.kraken.connection_status()
+        )
+    except Exception as exc:
+        kraken_status = {
+            "error": str(exc)
+        }
 
-        "ok": True,
+    return JSONResponse(
+        content=json_safe({
 
-        "running":
-            bot.running,
+            "ok": True,
 
-        "worker_alive":
-            worker_alive(),
+            "running":
+                bool(bot.running),
 
-        "worker_error":
-            worker_error,
+            "worker_alive":
+                worker_alive(),
 
-        "bot_error":
-            getattr(
-                bot,
-                "error",
-                None,
-            ),
+            "worker_error":
+                worker_error,
 
-        "last_scan":
-            bot.last_scan,
+            "bot_error":
+                getattr(
+                    bot,
+                    "error",
+                    None,
+                ),
 
-        "kraken":
-            bot.kraken.connection_status(),
+            "last_scan":
+                getattr(
+                    bot,
+                    "last_scan",
+                    None,
+                ),
 
-    })
+            "kraken":
+                kraken_status,
+
+        })
+    )
 
 
 # ============================================================
@@ -730,6 +985,7 @@ async def global_errors(
 
     print(
         "GLOBAL ERROR:",
+        type(exc).__name__,
         exc,
     )
 
