@@ -11,7 +11,8 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     background: #07090d;
@@ -167,12 +168,84 @@ header {
     margin-top: 5px;
 }
 
+/* =========================================================
+   PORTFOLIO CHART
+========================================================= */
+
+.portfolio-chart-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 12px;
+}
+
+.chart-current-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+}
+
+.chart-current-change {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #81798e;
+}
+
+.chart-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.chart-tabs {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px;
+    background: #11101a;
+    border: 1px solid #211d2c;
+    border-radius: 9px;
+}
+
+.chart-tab {
+    border: 0;
+    background: transparent;
+    color: #81798e;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 42px;
+}
+
+.chart-tab:hover {
+    background: #1a1723;
+}
+
+.chart-tab.active {
+    background: #292333;
+    color: #ffffff;
+}
+
+.range-tabs {
+    overflow-x: auto;
+    max-width: 100%;
+    scrollbar-width: none;
+}
+
+.range-tabs::-webkit-scrollbar {
+    display: none;
+}
+
 #chart {
     width: 100%;
-    height: 320px;
+    height: 340px;
     display: block;
-    background: #080c12;
-    border-radius: 8px;
+    background: #08090e;
+    border-radius: 9px;
 }
 
 .controls {
@@ -439,6 +512,7 @@ tr:last-child td {
 }
 
 @media (max-width: 1100px) {
+
     .cards {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -450,6 +524,7 @@ tr:last-child td {
 }
 
 @media (max-width: 650px) {
+
     .container {
         width: 94%;
         padding-top: 18px;
@@ -488,6 +563,18 @@ tr:last-child td {
     #chart {
         height: 250px;
     }
+
+    .chart-current-value {
+        font-size: 27px;
+    }
+
+    .chart-controls {
+        align-items: stretch;
+    }
+
+    .chart-tabs {
+        max-width: 100%;
+    }
 }
 </style>
 </head>
@@ -497,19 +584,24 @@ tr:last-child td {
 <div class="container">
 
 <header>
+
     <div class="brand">
         <h1>KRAKEN BOT</h1>
-        <p>Full-market crypto scanner • ML day trading • autonomous execution</p>
+
+        <p>
+            Full-market crypto scanner • ML day trading • autonomous execution
+        </p>
     </div>
 
     <div id="statusBadge" class="status">
         Connecting...
     </div>
+
 </header>
 
 
 <!-- =========================================================
-     ACCOUNT / MODE
+     TRADING MODE
 ========================================================= -->
 
 <div id="modeSection" class="section">
@@ -531,6 +623,7 @@ tr:last-child td {
         </div>
 
     </div>
+
 
     <div class="mode-panel">
 
@@ -556,53 +649,80 @@ tr:last-child td {
 
     </div>
 
+
     <div id="liveWarning" class="live-warning">
+
         <strong>🔴 LIVE TRADING ACTIVE</strong><br>
+
         The bot is authorized to submit real orders to Kraken.
         Make sure your risk limits and Kraken balance are correct.
+
     </div>
 
 
     <div class="account-grid">
 
         <div class="account-box">
+
             <div class="account-label">
                 Current Mode
             </div>
 
-            <div id="accountMode" class="account-value paper-text">
+            <div
+                id="accountMode"
+                class="account-value paper-text"
+            >
                 PAPER TRADING
             </div>
+
         </div>
 
+
         <div class="account-box">
+
             <div class="account-label">
                 Available USD
             </div>
 
-            <div id="accountAvailable" class="account-value">
+            <div
+                id="accountAvailable"
+                class="account-value"
+            >
                 $1,000.00
             </div>
+
         </div>
 
+
         <div class="account-box">
+
             <div class="account-label">
-                Total USD
+                Total Portfolio
             </div>
 
-            <div id="accountTotal" class="account-value">
+            <div
+                id="accountTotal"
+                class="account-value"
+            >
                 $1,000.00
             </div>
+
         </div>
 
+
         <div class="account-box">
+
             <div class="account-label">
                 Order Execution
             </div>
 
-            <div id="executionStatus" class="account-value paper-text">
+            <div
+                id="executionStatus"
+                class="account-value paper-text"
+            >
                 SIMULATED
             </div>
+
         </div>
 
     </div>
@@ -611,46 +731,120 @@ tr:last-child td {
 
 
 <!-- =========================================================
-     PERFORMANCE
+     PERFORMANCE CARDS
 ========================================================= -->
 
 <div class="cards">
 
-    <div id="equityCard" class="card">
-        <div class="label" id="equityLabel">Paper Equity</div>
-        <div id="equity" class="value">$1,000.00</div>
+    <div
+        id="equityCard"
+        class="card"
+    >
+
+        <div
+            class="label"
+            id="equityLabel"
+        >
+            Paper Equity
+        </div>
+
+        <div
+            id="equity"
+            class="value"
+        >
+            $1,000.00
+        </div>
+
     </div>
 
-    <div class="card">
-        <div class="label">Return</div>
-        <div id="return" class="value">0.00%</div>
-    </div>
 
     <div class="card">
-        <div class="label" id="cashLabel">Available Cash</div>
-        <div id="cash" class="value">$1,000.00</div>
+
+        <div class="label">
+            Return
+        </div>
+
+        <div
+            id="return"
+            class="value"
+        >
+            0.00%
+        </div>
+
     </div>
 
-    <div class="card">
-        <div class="label">Realized P&amp;L</div>
-        <div id="realized" class="value">$0.00</div>
-    </div>
 
     <div class="card">
-        <div class="label">Win Rate</div>
-        <div id="winrate" class="value">0.00%</div>
+
+        <div
+            class="label"
+            id="cashLabel"
+        >
+            Available Cash
+        </div>
+
+        <div
+            id="cash"
+            class="value"
+        >
+            $1,000.00
+        </div>
+
     </div>
 
+
     <div class="card">
-        <div class="label">Liquid Markets</div>
-        <div id="markets" class="value">0</div>
+
+        <div class="label">
+            Realized P&amp;L
+        </div>
+
+        <div
+            id="realized"
+            class="value"
+        >
+            $0.00
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="label">
+            Win Rate
+        </div>
+
+        <div
+            id="winrate"
+            class="value"
+        >
+            0.00%
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="label">
+            Liquid Markets
+        </div>
+
+        <div
+            id="markets"
+            class="value"
+        >
+            0
+        </div>
+
     </div>
 
 </div>
 
 
 <!-- =========================================================
-     EQUITY
+     PORTFOLIO CHART
 ========================================================= -->
 
 <div class="section">
@@ -658,20 +852,139 @@ tr:last-child td {
     <div class="section-header">
 
         <div>
-            <h2 class="section-title" id="chartTitle">
-                Paper Equity Growth
+
+            <h2
+                class="section-title"
+                id="chartTitle"
+            >
+                Portfolio
             </h2>
 
             <div class="section-subtitle">
-                Account performance
+                Kraken portfolio performance
             </div>
+
         </div>
 
-        <div id="chartInfo" class="section-subtitle">
-            Waiting for equity data...
+
+        <div
+            id="chartInfo"
+            class="section-subtitle"
+        >
+            Waiting for portfolio data...
         </div>
 
     </div>
+
+
+    <div class="portfolio-chart-summary">
+
+        <div>
+
+            <div
+                id="chartCurrentValue"
+                class="chart-current-value"
+            >
+                $0.00
+            </div>
+
+            <div
+                id="chartCurrentChange"
+                class="chart-current-change"
+            >
+                $0.00 (0.00%)
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="chart-controls">
+
+        <div class="chart-tabs">
+
+            <button
+                id="chartValueButton"
+                class="chart-tab active"
+                onclick="setChartView('VALUE')"
+            >
+                Value
+            </button>
+
+            <button
+                id="chartPnlButton"
+                class="chart-tab"
+                onclick="setChartView('PNL')"
+            >
+                P&amp;L
+            </button>
+
+        </div>
+
+
+        <div class="chart-tabs range-tabs">
+
+            <button
+                class="chart-tab"
+                data-range="1D"
+                onclick="setChartRange('1D')"
+            >
+                1D
+            </button>
+
+            <button
+                class="chart-tab"
+                data-range="1W"
+                onclick="setChartRange('1W')"
+            >
+                1W
+            </button>
+
+            <button
+                class="chart-tab active"
+                data-range="1M"
+                onclick="setChartRange('1M')"
+            >
+                1M
+            </button>
+
+            <button
+                class="chart-tab"
+                data-range="3M"
+                onclick="setChartRange('3M')"
+            >
+                3M
+            </button>
+
+            <button
+                class="chart-tab"
+                data-range="6M"
+                onclick="setChartRange('6M')"
+            >
+                6M
+            </button>
+
+            <button
+                class="chart-tab"
+                data-range="1Y"
+                onclick="setChartRange('1Y')"
+            >
+                1Y
+            </button>
+
+            <button
+                class="chart-tab"
+                data-range="ALL"
+                onclick="setChartRange('ALL')"
+            >
+                ALL
+            </button>
+
+        </div>
+
+    </div>
+
 
     <canvas id="chart"></canvas>
 
@@ -687,6 +1000,7 @@ tr:last-child td {
     <div class="section-header">
 
         <div>
+
             <h2 class="section-title">
                 Bot Controls
             </h2>
@@ -694,9 +1008,11 @@ tr:last-child td {
             <div class="section-subtitle">
                 Autonomous day-trading engine
             </div>
+
         </div>
 
     </div>
+
 
     <div class="controls">
 
@@ -738,6 +1054,7 @@ tr:last-child td {
     <div class="section-header">
 
         <div>
+
             <h2 class="section-title">
                 AI Market Signals
             </h2>
@@ -745,19 +1062,25 @@ tr:last-child td {
             <div class="section-subtitle">
                 Kraken liquid markets ranked by ML + strategy engine
             </div>
+
         </div>
 
-        <div id="signalInfo" class="section-subtitle">
+        <div
+            id="signalInfo"
+            class="section-subtitle"
+        >
             Loading...
         </div>
 
     </div>
+
 
     <div class="table-wrap">
 
         <table>
 
             <thead>
+
                 <tr>
                     <th>Rank</th>
                     <th>Market</th>
@@ -771,14 +1094,20 @@ tr:last-child td {
                     <th>Regime</th>
                     <th>Trade</th>
                 </tr>
+
             </thead>
 
             <tbody id="signals">
+
                 <tr>
-                    <td colspan="11" class="empty">
+                    <td
+                        colspan="11"
+                        class="empty"
+                    >
                         Loading market signals...
                     </td>
                 </tr>
+
             </tbody>
 
         </table>
@@ -797,6 +1126,7 @@ tr:last-child td {
     <div class="section-header">
 
         <div>
+
             <h2 class="section-title">
                 Open Positions
             </h2>
@@ -804,15 +1134,18 @@ tr:last-child td {
             <div class="section-subtitle">
                 Current bot positions
             </div>
+
         </div>
 
     </div>
+
 
     <div class="table-wrap">
 
         <table>
 
             <thead>
+
                 <tr>
                     <th>Market</th>
                     <th>Entry</th>
@@ -823,14 +1156,20 @@ tr:last-child td {
                     <th>P&amp;L</th>
                     <th>Opened</th>
                 </tr>
+
             </thead>
 
             <tbody id="positions">
+
                 <tr>
-                    <td colspan="8" class="empty">
+                    <td
+                        colspan="8"
+                        class="empty"
+                    >
                         No open positions
                     </td>
                 </tr>
+
             </tbody>
 
         </table>
@@ -849,6 +1188,7 @@ tr:last-child td {
     <div class="section-header">
 
         <div>
+
             <h2 class="section-title">
                 Kraken / Scanner
             </h2>
@@ -856,50 +1196,123 @@ tr:last-child td {
             <div class="section-subtitle">
                 Connection and market discovery status
             </div>
+
         </div>
 
     </div>
 
+
     <div class="info-grid">
 
         <div class="info-box">
-            <div class="small-label">Kraken Connection</div>
-            <div id="krakenConnection" class="small-value">—</div>
+            <div class="small-label">
+                Kraken Connection
+            </div>
+
+            <div
+                id="krakenConnection"
+                class="small-value"
+            >
+                —
+            </div>
         </div>
 
-        <div class="info-box">
-            <div class="small-label">Authentication</div>
-            <div id="krakenAuth" class="small-value">—</div>
-        </div>
 
         <div class="info-box">
-            <div class="small-label">Trading Mode</div>
-            <div id="tradingMode" class="small-value">—</div>
+            <div class="small-label">
+                Authentication
+            </div>
+
+            <div
+                id="krakenAuth"
+                class="small-value"
+            >
+                —
+            </div>
         </div>
 
-        <div class="info-box">
-            <div class="small-label">Live Orders</div>
-            <div id="liveOrders" class="small-value">—</div>
-        </div>
 
         <div class="info-box">
-            <div class="small-label">Markets Loaded</div>
-            <div id="marketsLoaded" class="small-value">—</div>
+            <div class="small-label">
+                Trading Mode
+            </div>
+
+            <div
+                id="tradingMode"
+                class="small-value"
+            >
+                —
+            </div>
         </div>
 
-        <div class="info-box">
-            <div class="small-label">Tickers Received</div>
-            <div id="tickersReceived" class="small-value">—</div>
-        </div>
 
         <div class="info-box">
-            <div class="small-label">Markets Sent to ML</div>
-            <div id="marketsToML" class="small-value">—</div>
+            <div class="small-label">
+                Live Orders
+            </div>
+
+            <div
+                id="liveOrders"
+                class="small-value"
+            >
+                —
+            </div>
         </div>
 
+
         <div class="info-box">
-            <div class="small-label">Last Scanner Refresh</div>
-            <div id="lastScannerRefresh" class="small-value">—</div>
+            <div class="small-label">
+                Markets Loaded
+            </div>
+
+            <div
+                id="marketsLoaded"
+                class="small-value"
+            >
+                —
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Tickers Received
+            </div>
+
+            <div
+                id="tickersReceived"
+                class="small-value"
+            >
+                —
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Markets Sent to ML
+            </div>
+
+            <div
+                id="marketsToML"
+                class="small-value"
+            >
+                —
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Last Scanner Refresh
+            </div>
+
+            <div
+                id="lastScannerRefresh"
+                class="small-value"
+            >
+                —
+            </div>
         </div>
 
     </div>
@@ -916,6 +1329,7 @@ tr:last-child td {
     <div class="section-header">
 
         <div>
+
             <h2 class="section-title">
                 Performance Details
             </h2>
@@ -923,50 +1337,123 @@ tr:last-child td {
             <div class="section-subtitle">
                 Risk and trading statistics
             </div>
+
         </div>
 
     </div>
 
+
     <div class="info-grid">
 
         <div class="info-box">
-            <div class="small-label">Total Trades</div>
-            <div id="totalTrades" class="small-value">0</div>
+            <div class="small-label">
+                Total Trades
+            </div>
+
+            <div
+                id="totalTrades"
+                class="small-value"
+            >
+                0
+            </div>
         </div>
 
-        <div class="info-box">
-            <div class="small-label">Wins / Losses</div>
-            <div id="winsLosses" class="small-value">0 / 0</div>
-        </div>
 
         <div class="info-box">
-            <div class="small-label">Profit Factor</div>
-            <div id="profitFactor" class="small-value">0.00</div>
+            <div class="small-label">
+                Wins / Losses
+            </div>
+
+            <div
+                id="winsLosses"
+                class="small-value"
+            >
+                0 / 0
+            </div>
         </div>
 
-        <div class="info-box">
-            <div class="small-label">Unrealized P&amp;L</div>
-            <div id="unrealized" class="small-value">$0.00</div>
-        </div>
 
         <div class="info-box">
-            <div class="small-label">24h P&amp;L</div>
-            <div id="pnl24" class="small-value">$0.00</div>
+            <div class="small-label">
+                Profit Factor
+            </div>
+
+            <div
+                id="profitFactor"
+                class="small-value"
+            >
+                0.00
+            </div>
         </div>
 
-        <div class="info-box">
-            <div class="small-label">24h Trades</div>
-            <div id="trades24" class="small-value">0</div>
-        </div>
 
         <div class="info-box">
-            <div class="small-label">Drawdown</div>
-            <div id="drawdown" class="small-value">0.00%</div>
+            <div class="small-label">
+                Unrealized P&amp;L
+            </div>
+
+            <div
+                id="unrealized"
+                class="small-value"
+            >
+                $0.00
+            </div>
         </div>
 
+
         <div class="info-box">
-            <div class="small-label">Consecutive Losses</div>
-            <div id="consecutiveLosses" class="small-value">0</div>
+            <div class="small-label">
+                24h P&amp;L
+            </div>
+
+            <div
+                id="pnl24"
+                class="small-value"
+            >
+                $0.00
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                24h Trades
+            </div>
+
+            <div
+                id="trades24"
+                class="small-value"
+            >
+                0
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Drawdown
+            </div>
+
+            <div
+                id="drawdown"
+                class="small-value"
+            >
+                0.00%
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Consecutive Losses
+            </div>
+
+            <div
+                id="consecutiveLosses"
+                class="small-value"
+            >
+                0
+            </div>
         </div>
 
     </div>
@@ -987,10 +1474,30 @@ tr:last-child td {
 
 
 /* =========================================================
+   GLOBAL STATE
+========================================================= */
+
+let currentTradingMode = "PAPER";
+
+let chartView = "VALUE";
+
+let chartRange = "1M";
+
+let paperChartHistory = [];
+
+const LIVE_PORTFOLIO_HISTORY_KEY =
+    "kraken_bot_live_portfolio_history_v1";
+
+const LIVE_SNAPSHOT_INTERVAL =
+    60 * 1000;
+
+
+/* =========================================================
    HELPERS
 ========================================================= */
 
-const $ = (id) => document.getElementById(id);
+const $ = id =>
+    document.getElementById(id);
 
 
 function money(value) {
@@ -1001,12 +1508,15 @@ function money(value) {
         return "$0.00";
     }
 
-    return n.toLocaleString(undefined, {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+    return n.toLocaleString(
+        undefined,
+        {
+            style: "currency",
+            currency: "USD",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    );
 }
 
 
@@ -1018,10 +1528,13 @@ function number(value, decimals = 2) {
         return "0";
     }
 
-    return n.toLocaleString(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
+    return n.toLocaleString(
+        undefined,
+        {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }
+    );
 }
 
 
@@ -1033,7 +1546,9 @@ function pct(value) {
         return "0.00%";
     }
 
-    return (n * 100).toFixed(2) + "%";
+    return (
+        n * 100
+    ).toFixed(2) + "%";
 }
 
 
@@ -1086,8 +1601,13 @@ function escapeHtml(value) {
 
 function isTrue(value) {
 
-    if (value === true) return true;
-    if (value === false) return false;
+    if (value === true) {
+        return true;
+    }
+
+    if (value === false) {
+        return false;
+    }
 
     if (typeof value === "number") {
         return value === 1;
@@ -1103,7 +1623,8 @@ function isTrue(value) {
             "authenticated",
             "online",
             "running",
-            "live"
+            "live",
+            "enabled"
         ].includes(
             value.toLowerCase()
         );
@@ -1114,11 +1635,918 @@ function isTrue(value) {
 
 
 /* =========================================================
-   TRADING MODE
+   LIVE PORTFOLIO HISTORY
 ========================================================= */
 
-let currentTradingMode = "PAPER";
+function loadLivePortfolioHistory() {
 
+    try {
+
+        const raw =
+            localStorage.getItem(
+                LIVE_PORTFOLIO_HISTORY_KEY
+            );
+
+        if (!raw) {
+            return [];
+        }
+
+        const data =
+            JSON.parse(raw);
+
+        if (!Array.isArray(data)) {
+            return [];
+        }
+
+        return data
+            .filter(item =>
+                item &&
+                Number.isFinite(
+                    Number(item.t)
+                ) &&
+                Number.isFinite(
+                    Number(item.value)
+                )
+            )
+            .map(item => ({
+                t: Number(item.t),
+                value: Number(item.value)
+            }))
+            .sort(
+                (a, b) =>
+                    a.t - b.t
+            );
+
+    } catch (error) {
+
+        console.warn(
+            "Portfolio history load error:",
+            error
+        );
+
+        return [];
+    }
+}
+
+
+function saveLivePortfolioHistory(history) {
+
+    try {
+
+        localStorage.setItem(
+            LIVE_PORTFOLIO_HISTORY_KEY,
+            JSON.stringify(history)
+        );
+
+    } catch (error) {
+
+        console.warn(
+            "Portfolio history save error:",
+            error
+        );
+    }
+}
+
+
+function recordLivePortfolioSnapshot(value) {
+
+    const numericValue =
+        Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return;
+    }
+
+    const now =
+        Date.now();
+
+    let history =
+        loadLivePortfolioHistory();
+
+    const last =
+        history.length
+            ? history[history.length - 1]
+            : null;
+
+    if (
+        last &&
+        now - last.t <
+        LIVE_SNAPSHOT_INTERVAL
+    ) {
+        return;
+    }
+
+    history.push({
+        t: now,
+        value: numericValue
+    });
+
+    /*
+     * Keep approximately one year
+     * of local LIVE history.
+     */
+
+    const cutoff =
+        now -
+        (
+            366 *
+            24 *
+            60 *
+            60 *
+            1000
+        );
+
+    history =
+        history.filter(
+            point =>
+                point.t >= cutoff
+        );
+
+    saveLivePortfolioHistory(
+        history
+    );
+}
+
+
+/* =========================================================
+   CHART
+========================================================= */
+
+function parseChartTimestamp(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return NaN;
+    }
+
+    if (
+        typeof value === "number"
+    ) {
+
+        if (
+            value < 10000000000
+        ) {
+            return value * 1000;
+        }
+
+        return value;
+    }
+
+    const parsed =
+        Date.parse(value);
+
+    return Number.isFinite(parsed)
+        ? parsed
+        : NaN;
+}
+
+
+function normalizeChartHistory(history) {
+
+    if (!Array.isArray(history)) {
+        return [];
+    }
+
+    return history
+        .map(item => {
+
+            if (
+                !item ||
+                typeof item !== "object"
+            ) {
+                return null;
+            }
+
+            const timestamp =
+                parseChartTimestamp(
+                    item.t ??
+                    item.timestamp ??
+                    item.time ??
+                    item.created_at ??
+                    item.ts
+                );
+
+            const value =
+                Number(
+                    item.value ??
+                    item.equity ??
+                    item.paper_equity ??
+                    item.portfolio_value_usd ??
+                    0
+                );
+
+            if (
+                !Number.isFinite(timestamp) ||
+                !Number.isFinite(value)
+            ) {
+                return null;
+            }
+
+            return {
+                t: timestamp,
+                value: value
+            };
+        })
+        .filter(Boolean)
+        .sort(
+            (a, b) =>
+                a.t - b.t
+        );
+}
+
+
+function chartRangeMilliseconds() {
+
+    const day =
+        24 *
+        60 *
+        60 *
+        1000;
+
+    switch (chartRange) {
+
+        case "1D":
+            return day;
+
+        case "1W":
+            return 7 * day;
+
+        case "1M":
+            return 30 * day;
+
+        case "3M":
+            return 90 * day;
+
+        case "6M":
+            return 180 * day;
+
+        case "1Y":
+            return 365 * day;
+
+        case "ALL":
+        default:
+            return null;
+    }
+}
+
+
+function filterChartHistory(history) {
+
+    const normalized =
+        normalizeChartHistory(
+            history
+        );
+
+    if (!normalized.length) {
+        return [];
+    }
+
+    if (chartRange === "ALL") {
+        return normalized;
+    }
+
+    const duration =
+        chartRangeMilliseconds();
+
+    if (!duration) {
+        return normalized;
+    }
+
+    const cutoff =
+        Date.now() -
+        duration;
+
+    const filtered =
+        normalized.filter(
+            point =>
+                point.t >= cutoff
+        );
+
+    if (!filtered.length) {
+
+        return [
+            normalized[
+                normalized.length - 1
+            ]
+        ];
+    }
+
+    return filtered;
+}
+
+
+function setChartView(view) {
+
+    chartView =
+        String(view)
+            .toUpperCase();
+
+    $("chartValueButton")
+        .classList.toggle(
+            "active",
+            chartView === "VALUE"
+        );
+
+    $("chartPnlButton")
+        .classList.toggle(
+            "active",
+            chartView === "PNL"
+        );
+
+    refreshChartOnly();
+}
+
+
+function setChartRange(range) {
+
+    chartRange =
+        String(range)
+            .toUpperCase();
+
+    document
+        .querySelectorAll(
+            "[data-range]"
+        )
+        .forEach(button => {
+
+            button.classList.toggle(
+                "active",
+                button.dataset.range ===
+                chartRange
+            );
+        });
+
+    refreshChartOnly();
+}
+
+
+function getChartHistory() {
+
+    if (
+        currentTradingMode ===
+        "LIVE"
+    ) {
+        return loadLivePortfolioHistory();
+    }
+
+    return paperChartHistory;
+}
+
+
+function refreshChartOnly() {
+
+    drawPortfolioChart(
+        getChartHistory()
+    );
+}
+
+
+/* =========================================================
+   KRAKEN STYLE CHART
+========================================================= */
+
+function drawPortfolioChart(history) {
+
+    const canvas =
+        $("chart");
+
+    if (!canvas) {
+        return;
+    }
+
+    const points =
+        filterChartHistory(
+            history
+        );
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+    const width =
+        Math.max(
+            rect.width,
+            300
+        );
+
+    const height =
+        Math.max(
+            rect.height,
+            220
+        );
+
+    const ratio =
+        window.devicePixelRatio ||
+        1;
+
+    canvas.width =
+        width * ratio;
+
+    canvas.height =
+        height * ratio;
+
+    const ctx =
+        canvas.getContext("2d");
+
+    if (!ctx) {
+        return;
+    }
+
+    ctx.setTransform(
+        ratio,
+        0,
+        0,
+        ratio,
+        0,
+        0
+    );
+
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+    if (!points.length) {
+
+        $("chartCurrentValue")
+            .textContent =
+            money(0);
+
+        $("chartCurrentChange")
+            .textContent =
+            "Waiting for portfolio snapshots";
+
+        $("chartInfo")
+            .textContent =
+            "Waiting for portfolio data...";
+
+        ctx.fillStyle =
+            "#625b70";
+
+        ctx.font =
+            "13px Arial";
+
+        ctx.textAlign =
+            "center";
+
+        ctx.fillText(
+            "Waiting for portfolio data...",
+            width / 2,
+            height / 2
+        );
+
+        return;
+    }
+
+    const baseValue =
+        points[0].value;
+
+    const currentValue =
+        points[
+            points.length - 1
+        ].value;
+
+    const pnl =
+        currentValue -
+        baseValue;
+
+    const pnlPercent =
+        baseValue !== 0
+            ? pnl / baseValue
+            : 0;
+
+    $("chartCurrentValue")
+        .textContent =
+        money(currentValue);
+
+    $("chartCurrentChange")
+        .textContent =
+        `${signedMoney(pnl)} (${pct(pnlPercent)})`;
+
+    $("chartCurrentChange")
+        .className =
+        "chart-current-change " +
+        colorClass(pnl);
+
+    $("chartInfo")
+        .textContent =
+        `${points.length} snapshots • ${chartRange}`;
+
+    const values =
+        points.map(
+            point =>
+                chartView === "PNL"
+                    ? point.value -
+                      baseValue
+                    : point.value
+        );
+
+    let minValue =
+        Math.min(...values);
+
+    let maxValue =
+        Math.max(...values);
+
+    if (
+        minValue === maxValue
+    ) {
+
+        const padding =
+            Math.max(
+                Math.abs(maxValue) * .01,
+                1
+            );
+
+        minValue -= padding;
+        maxValue += padding;
+    }
+
+    const valueRange =
+        maxValue -
+        minValue;
+
+    const left = 16;
+    const right = 72;
+    const top = 18;
+    const bottom = 30;
+
+    const chartWidth =
+        width -
+        left -
+        right;
+
+    const chartHeight =
+        height -
+        top -
+        bottom;
+
+
+    /* GRID */
+
+    ctx.save();
+
+    ctx.strokeStyle =
+        "rgba(135,117,168,.13)";
+
+    ctx.lineWidth = 1;
+
+    ctx.setLineDash([
+        2,
+        6
+    ]);
+
+    for (
+        let i = 0;
+        i <= 4;
+        i++
+    ) {
+
+        const y =
+            top +
+            chartHeight *
+            i /
+            4;
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            left,
+            y
+        );
+
+        ctx.lineTo(
+            width - right,
+            y
+        );
+
+        ctx.stroke();
+    }
+
+    ctx.restore();
+
+
+    /* Y AXIS */
+
+    ctx.fillStyle =
+        "#6d6579";
+
+    ctx.font =
+        "11px Arial";
+
+    ctx.textAlign =
+        "left";
+
+    for (
+        let i = 0;
+        i <= 4;
+        i++
+    ) {
+
+        const value =
+            maxValue -
+            valueRange *
+            i /
+            4;
+
+        const y =
+            top +
+            chartHeight *
+            i /
+            4;
+
+        ctx.fillText(
+            chartView === "PNL"
+                ? signedMoney(value)
+                : money(value),
+            width - right + 10,
+            y + 4
+        );
+    }
+
+
+    /* POINTS */
+
+    const chartPoints =
+        values.map(
+            (value, index) => {
+
+                const x =
+                    left +
+                    (
+                        index /
+                        Math.max(
+                            values.length - 1,
+                            1
+                        )
+                    ) *
+                    chartWidth;
+
+                const y =
+                    top +
+                    (
+                        (
+                            maxValue -
+                            value
+                        ) /
+                        valueRange
+                    ) *
+                    chartHeight;
+
+                return {
+                    x,
+                    y
+                };
+            }
+        );
+
+
+    /* AREA */
+
+    const gradient =
+        ctx.createLinearGradient(
+            0,
+            top,
+            0,
+            height - bottom
+        );
+
+    gradient.addColorStop(
+        0,
+        "rgba(139,92,246,.30)"
+    );
+
+    gradient.addColorStop(
+        1,
+        "rgba(139,92,246,0)"
+    );
+
+    ctx.beginPath();
+
+    chartPoints.forEach(
+        (point, index) => {
+
+            if (index === 0) {
+
+                ctx.moveTo(
+                    point.x,
+                    point.y
+                );
+
+                return;
+            }
+
+            const previous =
+                chartPoints[
+                    index - 1
+                ];
+
+            const midpoint =
+                (
+                    previous.x +
+                    point.x
+                ) / 2;
+
+            ctx.quadraticCurveTo(
+                previous.x,
+                previous.y,
+                midpoint,
+                (
+                    previous.y +
+                    point.y
+                ) / 2
+            );
+
+            ctx.quadraticCurveTo(
+                midpoint,
+                (
+                    previous.y +
+                    point.y
+                ) / 2,
+                point.x,
+                point.y
+            );
+        }
+    );
+
+    const lastPoint =
+        chartPoints[
+            chartPoints.length - 1
+        ];
+
+    ctx.lineTo(
+        lastPoint.x,
+        height - bottom
+    );
+
+    ctx.lineTo(
+        chartPoints[0].x,
+        height - bottom
+    );
+
+    ctx.closePath();
+
+    ctx.fillStyle =
+        gradient;
+
+    ctx.fill();
+
+
+    /* LINE */
+
+    ctx.beginPath();
+
+    chartPoints.forEach(
+        (point, index) => {
+
+            if (index === 0) {
+
+                ctx.moveTo(
+                    point.x,
+                    point.y
+                );
+
+                return;
+            }
+
+            const previous =
+                chartPoints[
+                    index - 1
+                ];
+
+            const midpoint =
+                (
+                    previous.x +
+                    point.x
+                ) / 2;
+
+            ctx.quadraticCurveTo(
+                previous.x,
+                previous.y,
+                midpoint,
+                (
+                    previous.y +
+                    point.y
+                ) / 2
+            );
+
+            ctx.quadraticCurveTo(
+                midpoint,
+                (
+                    previous.y +
+                    point.y
+                ) / 2,
+                point.x,
+                point.y
+            );
+        }
+    );
+
+    ctx.strokeStyle =
+        "#8b5cf6";
+
+    ctx.lineWidth = 2.5;
+
+    ctx.lineJoin =
+        "round";
+
+    ctx.lineCap =
+        "round";
+
+    ctx.stroke();
+
+
+    /* CURRENT POINT */
+
+    ctx.beginPath();
+
+    ctx.arc(
+        lastPoint.x,
+        lastPoint.y,
+        5,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle =
+        "#8b5cf6";
+
+    ctx.fill();
+
+    ctx.beginPath();
+
+    ctx.arc(
+        lastPoint.x,
+        lastPoint.y,
+        9,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.strokeStyle =
+        "rgba(139,92,246,.28)";
+
+    ctx.lineWidth = 2;
+
+    ctx.stroke();
+
+
+    /* DATE LABELS */
+
+    if (
+        points.length > 1
+    ) {
+
+        ctx.fillStyle =
+            "#625b70";
+
+        ctx.font =
+            "10px Arial";
+
+        ctx.textAlign =
+            "left";
+
+        ctx.fillText(
+            new Date(
+                points[0].t
+            ).toLocaleDateString(
+                undefined,
+                {
+                    month: "short",
+                    day: "numeric"
+                }
+            ),
+            left,
+            height - 8
+        );
+
+        ctx.textAlign =
+            "right";
+
+        ctx.fillText(
+            new Date(
+                points[
+                    points.length - 1
+                ].t
+            ).toLocaleDateString(
+                undefined,
+                {
+                    month: "short",
+                    day: "numeric"
+                }
+            ),
+            width - right,
+            height - 8
+        );
+    }
+}
+
+
+/* =========================================================
+   TRADING MODE
+========================================================= */
 
 async function loadTradingMode() {
 
@@ -1213,13 +2641,11 @@ function applyTradingModeUI(mode) {
         modeStatus.className =
             "mode-status live";
 
-
         accountMode.textContent =
             "🔴 LIVE TRADING";
 
         accountMode.className =
             "account-value live-text";
-
 
         executionStatus.textContent =
             "REAL ORDERS";
@@ -1227,13 +2653,11 @@ function applyTradingModeUI(mode) {
         executionStatus.className =
             "account-value live-text";
 
-
         tradingMode.textContent =
             "🔴 LIVE TRADING";
 
         tradingMode.className =
             "small-value live-text";
-
 
         liveOrders.textContent =
             "ENABLED";
@@ -1241,36 +2665,28 @@ function applyTradingModeUI(mode) {
         liveOrders.className =
             "small-value live-text";
 
-
         warning.classList.add(
             "visible"
         );
-
 
         section.classList.add(
             "live-section"
         );
 
-
         liveButton.className =
             "mode-button active-live";
-
 
         paperButton.className =
             "mode-button";
 
-
         equityLabel.textContent =
             "Kraken Equity";
-
 
         cashLabel.textContent =
             "Kraken Available";
 
-
         chartTitle.textContent =
-            "Live Trading Equity";
-
+            "Kraken Portfolio";
 
         equityCard.classList.add(
             "live-card"
@@ -1284,13 +2700,11 @@ function applyTradingModeUI(mode) {
         modeStatus.className =
             "mode-status paper";
 
-
         accountMode.textContent =
             "PAPER TRADING";
 
         accountMode.className =
             "account-value paper-text";
-
 
         executionStatus.textContent =
             "SIMULATED";
@@ -1298,13 +2712,11 @@ function applyTradingModeUI(mode) {
         executionStatus.className =
             "account-value paper-text";
 
-
         tradingMode.textContent =
             "PAPER TRADING";
 
         tradingMode.className =
             "small-value paper-text";
-
 
         liveOrders.textContent =
             "DISABLED";
@@ -1312,36 +2724,28 @@ function applyTradingModeUI(mode) {
         liveOrders.className =
             "small-value system-warning";
 
-
         warning.classList.remove(
             "visible"
         );
-
 
         section.classList.remove(
             "live-section"
         );
 
-
         liveButton.className =
             "mode-button";
-
 
         paperButton.className =
             "mode-button active-paper";
 
-
         equityLabel.textContent =
             "Paper Equity";
-
 
         cashLabel.textContent =
             "Available Cash";
 
-
         chartTitle.textContent =
             "Paper Equity Growth";
-
 
         equityCard.classList.remove(
             "live-card"
@@ -1370,10 +2774,8 @@ async function setPaperMode() {
                 }
             );
 
-
         const data =
             await response.json();
-
 
         if (data.ok !== true) {
 
@@ -1387,7 +2789,6 @@ async function setPaperMode() {
 
             return;
         }
-
 
         currentTradingMode =
             "PAPER";
@@ -1422,17 +2823,14 @@ async function requestLiveMode() {
             "Only continue when you are ready to risk real money."
         );
 
-
     if (!confirmed) {
         return;
     }
-
 
     const confirmation =
         window.prompt(
             "Type ENABLE LIVE to confirm:"
         );
-
 
     if (
         confirmation !==
@@ -1447,17 +2845,15 @@ async function requestLiveMode() {
         return;
     }
 
-
     const button =
         $("liveModeButton");
-
 
     try {
 
         button.disabled = true;
+
         button.textContent =
             "VERIFYING...";
-
 
         const response =
             await fetch(
@@ -1477,10 +2873,8 @@ async function requestLiveMode() {
                 }
             );
 
-
         const data =
             await response.json();
-
 
         if (data.ok !== true) {
 
@@ -1499,33 +2893,31 @@ async function requestLiveMode() {
             return;
         }
 
-
         currentTradingMode =
             "LIVE";
-
 
         applyTradingModeUI(
             "LIVE"
         );
 
-
         const available =
-            data.account?.free;
-
+            data.account?.available_usd ??
+            data.account?.free ??
+            0;
 
         const total =
-            data.account?.total;
-
+            data.account?.portfolio_value_usd ??
+            data.account?.total ??
+            0;
 
         alert(
             "🔴 LIVE TRADING ENABLED\n\n" +
             "Available USD: " +
             money(available) +
-            "\nTotal USD: " +
+            "\nTotal Portfolio: " +
             money(total) +
             "\n\nThe bot is now authorized to submit real Kraken orders."
         );
-
 
         await refresh();
 
@@ -1535,7 +2927,6 @@ async function requestLiveMode() {
             "LIVE MODE ERROR:",
             error
         );
-
 
         alert(
             "LIVE TRADING was NOT enabled:\n\n" +
@@ -1549,6 +2940,7 @@ async function requestLiveMode() {
     } finally {
 
         button.disabled = false;
+
         button.textContent =
             "LIVE TRADING";
     }
@@ -1569,7 +2961,6 @@ async function refreshBalance() {
             }
         );
 
-
     if (!response.ok) {
 
         throw new Error(
@@ -1577,21 +2968,16 @@ async function refreshBalance() {
         );
     }
 
-
     const data =
         await response.json();
 
-
-    if (
-        data.ok !== true
-    ) {
+    if (data.ok !== true) {
 
         throw new Error(
             data.error ??
             "Balance unavailable"
         );
     }
-
 
     const live =
         String(
@@ -1603,367 +2989,84 @@ async function refreshBalance() {
 
     if (live) {
 
-        $("accountAvailable")
-            .textContent =
-            money(
+        const availableUSD =
+            Number(
+                data.usd_free ??
                 data.free ??
                 data.cash ??
                 0
             );
 
-
-        $("accountTotal")
-            .textContent =
-            money(
+        const portfolioValue =
+            Number(
+                data.portfolio_value_usd ??
                 data.total ??
                 data.equity ??
                 0
             );
 
+        $("accountAvailable")
+            .textContent =
+            money(
+                availableUSD
+            );
+
+        $("accountTotal")
+            .textContent =
+            money(
+                portfolioValue
+            );
 
         $("equity")
             .textContent =
             money(
-                data.total ??
-                data.equity ??
-                0
+                portfolioValue
             );
-
 
         $("cash")
             .textContent =
             money(
-                data.free ??
-                data.cash ??
-                0
+                availableUSD
             );
+
+        recordLivePortfolioSnapshot(
+            portfolioValue
+        );
+
+        refreshChartOnly();
 
     } else {
 
-        $("accountAvailable")
-            .textContent =
-            money(
-                data.free ??
-                data.cash ??
+        const equity =
+            Number(
+                data.equity ??
+                data.total ??
                 0
             );
 
+        const cash =
+            Number(
+                data.cash ??
+                data.free ??
+                0
+            );
+
+        $("accountAvailable")
+            .textContent =
+            money(cash);
 
         $("accountTotal")
             .textContent =
-            money(
-                data.total ??
-                data.equity ??
-                0
-            );
+            money(equity);
+
+        $("equity")
+            .textContent =
+            money(equity);
+
+        $("cash")
+            .textContent =
+            money(cash);
     }
-}
-
-
-/* =========================================================
-   EQUITY CHART
-========================================================= */
-
-function drawEquity(history) {
-
-    if (!Array.isArray(history)) {
-        history = [];
-    }
-
-    const canvas =
-        $("chart");
-
-    if (!canvas) {
-        return;
-    }
-
-    const rect =
-        canvas.getBoundingClientRect();
-
-    const width =
-        Math.max(
-            rect.width,
-            300
-        );
-
-    const height =
-        Math.max(
-            rect.height,
-            200
-        );
-
-    const ratio =
-        window.devicePixelRatio ||
-        1;
-
-    canvas.width =
-        width * ratio;
-
-    canvas.height =
-        height * ratio;
-
-    const ctx =
-        canvas.getContext("2d");
-
-    if (!ctx) {
-        return;
-    }
-
-    ctx.setTransform(
-        ratio,
-        0,
-        0,
-        ratio,
-        0,
-        0
-    );
-
-    ctx.clearRect(
-        0,
-        0,
-        width,
-        height
-    );
-
-
-    if (!history.length) {
-
-        ctx.fillStyle =
-            "#667384";
-
-        ctx.font =
-            "14px Arial";
-
-        ctx.textAlign =
-            "center";
-
-        ctx.fillText(
-            "Waiting for equity snapshots...",
-            width / 2,
-            height / 2
-        );
-
-        return;
-    }
-
-
-    const values =
-        history
-            .map(item => {
-
-                if (
-                    item &&
-                    typeof item === "object"
-                ) {
-
-                    return Number(
-                        item.equity ??
-                        item.value ??
-                        item.paper_equity ??
-                        0
-                    );
-                }
-
-                return Number(item);
-
-            })
-            .filter(
-                value =>
-                    Number.isFinite(value)
-            );
-
-
-    if (!values.length) {
-        return;
-    }
-
-
-    const minValue =
-        Math.min(...values);
-
-    const maxValue =
-        Math.max(...values);
-
-    const padding =
-        45;
-
-    const range =
-        maxValue - minValue === 0
-            ? Math.max(
-                Math.abs(maxValue) * .01,
-                1
-            )
-            : maxValue - minValue;
-
-
-    ctx.strokeStyle =
-        "#151d27";
-
-    ctx.lineWidth =
-        1;
-
-
-    for (
-        let i = 0;
-        i < 5;
-        i++
-    ) {
-
-        const y =
-            padding +
-            (
-                (height - padding * 2) /
-                4
-            ) * i;
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            padding,
-            y
-        );
-
-        ctx.lineTo(
-            width - padding,
-            y
-        );
-
-        ctx.stroke();
-    }
-
-
-    ctx.fillStyle =
-        "#657182";
-
-    ctx.font =
-        "11px Arial";
-
-    ctx.textAlign =
-        "left";
-
-
-    for (
-        let i = 0;
-        i < 5;
-        i++
-    ) {
-
-        const value =
-            maxValue -
-            (range / 4) * i;
-
-        const y =
-            padding +
-            (
-                (height - padding * 2) /
-                4
-            ) * i;
-
-        ctx.fillText(
-            money(value),
-            5,
-            y + 4
-        );
-    }
-
-
-    ctx.beginPath();
-
-
-    values.forEach(
-        (value, index) => {
-
-            const x =
-                padding +
-                (
-                    index /
-                    Math.max(
-                        values.length - 1,
-                        1
-                    )
-                ) *
-                (
-                    width -
-                    padding * 2
-                );
-
-
-            const y =
-                padding +
-                (
-                    (maxValue - value) /
-                    range
-                ) *
-                (
-                    height -
-                    padding * 2
-                );
-
-
-            if (index === 0) {
-                ctx.moveTo(
-                    x,
-                    y
-                );
-            } else {
-                ctx.lineTo(
-                    x,
-                    y
-                );
-            }
-        }
-    );
-
-
-    ctx.strokeStyle =
-        currentTradingMode === "LIVE"
-            ? "#ff7777"
-            : "#f4f6f8";
-
-    ctx.lineWidth =
-        2;
-
-    ctx.stroke();
-
-
-    const lastValue =
-        values[values.length - 1];
-
-    const lastX =
-        width - padding;
-
-    const lastY =
-        padding +
-        (
-            (maxValue - lastValue) /
-            range
-        ) *
-        (
-            height -
-            padding * 2
-        );
-
-
-    ctx.beginPath();
-
-    ctx.arc(
-        lastX,
-        lastY,
-        4,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fillStyle =
-        currentTradingMode === "LIVE"
-            ? "#ff7777"
-            : "#f4f6f8";
-
-    ctx.fill();
-
-
-    $("chartInfo").textContent =
-        `${values.length} snapshots • Current ${money(lastValue)}`;
 }
 
 
@@ -1981,7 +3084,6 @@ async function refreshStatus() {
             }
         );
 
-
     if (!response.ok) {
 
         throw new Error(
@@ -1989,7 +3091,6 @@ async function refreshStatus() {
             response.status
         );
     }
-
 
     return await response.json();
 }
@@ -2009,7 +3110,6 @@ async function refreshPerformance() {
             }
         );
 
-
     if (!response.ok) {
 
         throw new Error(
@@ -2017,26 +3117,35 @@ async function refreshPerformance() {
         );
     }
 
-
     const data =
         await response.json();
-
 
     const d =
         data?.stats &&
         typeof data.stats === "object"
             ? data.stats
-            : (
-                data || {}
+            : data || {};
+
+
+    if (
+        currentTradingMode !==
+        "LIVE"
+    ) {
+
+        $("equity").textContent =
+            money(
+                d.paper_equity ??
+                d.equity ??
+                0
             );
 
-
-    $("equity").textContent =
-        money(
-            d.paper_equity ??
-            d.equity ??
-            0
-        );
+        $("cash").textContent =
+            money(
+                d.paper_balance ??
+                d.cash ??
+                0
+            );
+    }
 
 
     $("return").textContent =
@@ -2044,7 +3153,6 @@ async function refreshPerformance() {
             d.return_pct ??
             0
         );
-
 
     $("return").className =
         "value " +
@@ -2054,20 +3162,11 @@ async function refreshPerformance() {
         );
 
 
-    $("cash").textContent =
-        money(
-            d.paper_balance ??
-            d.cash ??
-            0
-        );
-
-
     $("realized").textContent =
         signedMoney(
             d.realized_pnl ??
             0
         );
-
 
     $("realized").className =
         "value " +
@@ -2142,39 +3241,68 @@ async function refreshPerformance() {
         );
 
 
+    /*
+     * LIVE chart uses actual Kraken
+     * portfolio snapshots.
+     */
+
+    if (
+        currentTradingMode ===
+        "LIVE"
+    ) {
+
+        refreshChartOnly();
+
+        return;
+    }
+
+
+    /*
+     * PAPER chart uses database
+     * equity history.
+     */
+
     const historyResponse =
         await fetch(
-            "/api/equity?limit=240",
+            "/api/equity",
             {
                 cache: "no-store"
             }
         );
 
-
     if (!historyResponse.ok) {
+
         throw new Error(
             "Equity request failed"
         );
     }
 
-
     const historyData =
         await historyResponse.json();
-
 
     const history =
         Array.isArray(historyData)
             ? historyData
             : (
                 Array.isArray(
-                    historyData.equity
+                    historyData.history
                 )
-                    ? historyData.equity
-                    : []
+                    ? historyData.history
+                    : (
+                        Array.isArray(
+                            historyData.equity
+                        )
+                            ? historyData.equity
+                            : []
+                    )
             );
 
+    paperChartHistory =
+        history;
 
-    drawEquity(history);
+    drawPortfolioChart(
+        history
+    );
 }
 
 
@@ -2192,17 +3320,15 @@ async function refreshSignals() {
             }
         );
 
-
     if (!response.ok) {
+
         throw new Error(
             "Signals request failed"
         );
     }
 
-
     const data =
         await response.json();
-
 
     const signals =
         Array.isArray(data)
@@ -2212,7 +3338,6 @@ async function refreshSignals() {
                     ? data.signals
                     : []
             );
-
 
     const body =
         $("signals");
@@ -2250,10 +3375,8 @@ async function refreshSignals() {
                         "NEUTRAL"
                     ).toUpperCase();
 
-
                 let directionClass =
                     "neutral-badge";
-
 
                 if (
                     direction === "LONG"
@@ -2262,7 +3385,6 @@ async function refreshSignals() {
                         "long";
                 }
 
-
                 if (
                     direction === "SHORT"
                 ) {
@@ -2270,37 +3392,31 @@ async function refreshSignals() {
                         "short";
                 }
 
-
                 const probability =
                     s.probability ??
                     s.ai_probability ??
                     s.ml_probability ??
                     0;
 
-
                 const expectedMove =
                     s.expected_move ??
                     s.expected_move_pct ??
                     0;
-
 
                 const score =
                     s.score ??
                     s.combined_score ??
                     0;
 
-
                 const strategy =
                     s.strategy_score ??
                     s.strategy ??
                     0;
 
-
                 const volume =
                     s.quote_volume ??
                     s.volume_24h ??
                     0;
-
 
                 const tradeable =
                     isTrue(
@@ -2399,17 +3515,15 @@ async function refreshPositions() {
             }
         );
 
-
     if (!response.ok) {
+
         throw new Error(
             "Positions request failed"
         );
     }
 
-
     const data =
         await response.json();
-
 
     const positions =
         Array.isArray(data)
@@ -2419,7 +3533,6 @@ async function refreshPositions() {
                     ? data.positions
                     : []
             );
-
 
     const body =
         $("positions");
@@ -2447,7 +3560,6 @@ async function refreshPositions() {
                     p.unrealized_pnl ??
                     p.pnl ??
                     0;
-
 
                 return `
                     <tr>
@@ -2591,9 +3703,7 @@ async function refresh() {
             );
 
 
-        /* =====================================================
-           STATUS BADGE
-        ===================================================== */
+        /* STATUS */
 
         if (
             mode === "LIVE" &&
@@ -2608,9 +3718,7 @@ async function refresh() {
             $("statusBadge").textContent =
                 "🔴 Kraken Authenticated • Bot Running • LIVE TRADING";
 
-        }
-
-        else if (
+        } else if (
             mode === "LIVE" &&
             authenticated
         ) {
@@ -2621,9 +3729,7 @@ async function refresh() {
             $("statusBadge").textContent =
                 "🔴 Kraken Authenticated • Bot Stopped • LIVE TRADING";
 
-        }
-
-        else if (
+        } else if (
             authenticated &&
             running &&
             workerAlive
@@ -2635,9 +3741,7 @@ async function refresh() {
             $("statusBadge").textContent =
                 "Kraken Authenticated • Bot Running • PAPER TRADING";
 
-        }
-
-        else if (
+        } else if (
             authenticated
         ) {
 
@@ -2647,9 +3751,7 @@ async function refresh() {
             $("statusBadge").textContent =
                 "Kraken Authenticated • Bot Stopped • PAPER TRADING";
 
-        }
-
-        else if (
+        } else if (
             connected
         ) {
 
@@ -2659,9 +3761,7 @@ async function refresh() {
             $("statusBadge").textContent =
                 "Kraken Connected • Authentication Pending";
 
-        }
-
-        else {
+        } else {
 
             $("statusBadge").className =
                 "status error";
@@ -2671,23 +3771,12 @@ async function refresh() {
         }
 
 
-        /* =====================================================
-           KRAKEN / SCANNER
-        ===================================================== */
-
-        $("markets").textContent =
-            number(
-                scanner.liquid_markets ??
-                0,
-                0
-            );
-
+        /* KRAKEN */
 
         $("krakenConnection").textContent =
             connected
                 ? "Connected"
                 : "Offline";
-
 
         $("krakenConnection").className =
             "small-value " +
@@ -2703,7 +3792,6 @@ async function refresh() {
                 ? "Authenticated"
                 : "Not authenticated";
 
-
         $("krakenAuth").className =
             "small-value " +
             (
@@ -2713,12 +3801,48 @@ async function refresh() {
             );
 
 
+        $("tradingMode").textContent =
+            mode === "LIVE"
+                ? "🔴 LIVE TRADING"
+                : "PAPER TRADING";
+
+
+        $("tradingMode").className =
+            "small-value " +
+            (
+                mode === "LIVE"
+                    ? "live-text"
+                    : "paper-text"
+            );
+
+
         $("liveOrders").textContent =
             isTrue(
                 kraken.live_orders_enabled
             )
                 ? "ENABLED"
                 : "DISABLED";
+
+
+        $("liveOrders").className =
+            "small-value " +
+            (
+                isTrue(
+                    kraken.live_orders_enabled
+                )
+                    ? "live-text"
+                    : "system-warning"
+            );
+
+
+        /* SCANNER */
+
+        $("markets").textContent =
+            number(
+                scanner.liquid_markets ??
+                0,
+                0
+            );
 
 
         $("marketsLoaded").textContent =
@@ -2754,7 +3878,6 @@ async function refresh() {
                     scanner.last_refresh
                 );
 
-
             if (
                 Number.isFinite(timestamp)
             ) {
@@ -2762,10 +3885,8 @@ async function refresh() {
                 if (
                     timestamp < 10000000000
                 ) {
-
                     timestamp *= 1000;
                 }
-
 
                 $("lastScannerRefresh")
                     .textContent =
@@ -2788,9 +3909,7 @@ async function refresh() {
         }
 
 
-        /* =====================================================
-           ACCOUNT
-        ===================================================== */
+        /* ACCOUNT */
 
         try {
 
@@ -2805,9 +3924,7 @@ async function refresh() {
         }
 
 
-        /* =====================================================
-           OTHER DATA
-        ===================================================== */
+        /* OTHER DATA */
 
         const results =
             await Promise.allSettled([
@@ -2820,7 +3937,8 @@ async function refresh() {
         const failures =
             results.filter(
                 result =>
-                    result.status === "rejected"
+                    result.status ===
+                    "rejected"
             );
 
 
@@ -2839,10 +3957,8 @@ async function refresh() {
             error
         );
 
-
         $("statusBadge").className =
             "status error";
-
 
         $("statusBadge").textContent =
             "Dashboard API connection error";
@@ -2859,13 +3975,12 @@ async function startBot() {
     const button =
         $("startButton");
 
-
     try {
 
         button.disabled = true;
+
         button.textContent =
             "Starting...";
-
 
         const response =
             await fetch(
@@ -2880,14 +3995,10 @@ async function startBot() {
                 }
             );
 
-
         const data =
             await response.json();
 
-
-        if (
-            data.ok !== true
-        ) {
+        if (data.ok !== true) {
 
             alert(
                 "Bot could not start:\n\n" +
@@ -2900,9 +4011,7 @@ async function startBot() {
             return;
         }
 
-
         await refresh();
-
 
     } catch (error) {
 
@@ -2910,7 +4019,6 @@ async function startBot() {
             "START ERROR:",
             error
         );
-
 
         alert(
             "Unable to start bot:\n\n" +
@@ -2920,6 +4028,7 @@ async function startBot() {
     } finally {
 
         button.disabled = false;
+
         button.textContent =
             "Start Bot";
     }
@@ -2935,13 +4044,12 @@ async function stopBot() {
     const button =
         $("stopButton");
 
-
     try {
 
         button.disabled = true;
+
         button.textContent =
             "Stopping...";
-
 
         const response =
             await fetch(
@@ -2956,14 +4064,10 @@ async function stopBot() {
                 }
             );
 
-
         const data =
             await response.json();
 
-
-        if (
-            data.ok !== true
-        ) {
+        if (data.ok !== true) {
 
             alert(
                 "Unable to stop bot:\n\n" +
@@ -2976,9 +4080,7 @@ async function stopBot() {
             return;
         }
 
-
         await refresh();
-
 
     } catch (error) {
 
@@ -2986,7 +4088,6 @@ async function stopBot() {
             "STOP ERROR:",
             error
         );
-
 
         alert(
             "Unable to stop bot:\n\n" +
@@ -2996,6 +4097,7 @@ async function stopBot() {
     } finally {
 
         button.disabled = false;
+
         button.textContent =
             "Stop Bot";
     }
@@ -3013,7 +4115,6 @@ async function runScan() {
         $("signalInfo").textContent =
             "Queuing full-market scan...";
 
-
         const response =
             await fetch(
                 "/api/scan",
@@ -3027,18 +4128,13 @@ async function runScan() {
                 }
             );
 
-
         const data =
             await response.json();
 
-
-        if (
-            data.ok !== true
-        ) {
+        if (data.ok !== true) {
 
             $("signalInfo").textContent =
                 "Scan failed";
-
 
             alert(
                 "Scan failed:\n\n" +
@@ -3051,12 +4147,10 @@ async function runScan() {
             return;
         }
 
-
         $("signalInfo").textContent =
             data.already_scanning
                 ? "A scan is already running..."
                 : "Full-market scan queued";
-
 
         setTimeout(
             refresh,
@@ -3070,10 +4164,8 @@ async function runScan() {
             error
         );
 
-
         $("signalInfo").textContent =
             "Scan failed";
-
 
         alert(
             "Scan failed:\n\n" +
@@ -3090,15 +4182,7 @@ async function runScan() {
 window.addEventListener(
     "resize",
     () => {
-
-        refreshPerformance()
-            .catch(
-                error =>
-                    console.warn(
-                        "Chart refresh error:",
-                        error
-                    )
-            );
+        refreshChartOnly();
     }
 );
 
