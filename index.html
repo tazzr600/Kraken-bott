@@ -11,8 +11,7 @@
     box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
     margin: 0;
     padding: 0;
     background: #07090d;
@@ -65,6 +64,13 @@ header {
     border-color: #214d34;
 }
 
+.status.live {
+    color: #ff8585;
+    border-color: #692525;
+    background: #180d0f;
+    font-weight: 700;
+}
+
 .status.warning {
     color: #ffd27a;
     border-color: #59471e;
@@ -88,6 +94,11 @@ header {
     border-radius: 12px;
     padding: 18px;
     min-height: 105px;
+}
+
+.card.live-card {
+    border-color: #692525;
+    background: #120b0d;
 }
 
 .label {
@@ -115,12 +126,24 @@ header {
     color: #f4f6f8;
 }
 
+.live-text {
+    color: #ff7777 !important;
+}
+
+.paper-text {
+    color: #8ff0b2 !important;
+}
+
 .section {
     background: #0c1118;
     border: 1px solid #1b2430;
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 18px;
+}
+
+.section.live-section {
+    border-color: #692525;
 }
 
 .section-header {
@@ -186,6 +209,118 @@ button:disabled {
     opacity: .5;
     cursor: not-allowed;
 }
+
+/* =========================================================
+   TRADING MODE
+========================================================= */
+
+.mode-panel {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.mode-switch {
+    display: flex;
+    background: #080c12;
+    border: 1px solid #26303d;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.mode-button {
+    min-width: 130px;
+    border: 0;
+    background: transparent;
+    color: #7f8a99;
+    border-radius: 7px;
+    padding: 11px 18px;
+    font-weight: 800;
+    letter-spacing: .5px;
+}
+
+.mode-button:hover {
+    background: #121923;
+}
+
+.mode-button.active-paper {
+    background: #173522;
+    color: #8ff0b2;
+}
+
+.mode-button.active-live {
+    background: #4a1518;
+    color: #ff8585;
+}
+
+.mode-status {
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid #26303d;
+    font-weight: 800;
+    letter-spacing: .5px;
+}
+
+.mode-status.paper {
+    color: #8ff0b2;
+    border-color: #214d34;
+    background: #0e1b13;
+}
+
+.mode-status.live {
+    color: #ff8585;
+    border-color: #692525;
+    background: #1b0c0f;
+}
+
+.live-warning {
+    display: none;
+    margin-top: 15px;
+    padding: 13px 15px;
+    border: 1px solid #692525;
+    border-radius: 8px;
+    background: #180b0e;
+    color: #ff9a9a;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.live-warning.visible {
+    display: block;
+}
+
+.account-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.account-box {
+    background: #080c12;
+    border: 1px solid #18212c;
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.account-label {
+    color: #697587;
+    font-size: 11px;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+}
+
+.account-value {
+    font-size: 19px;
+    font-weight: 700;
+}
+
+/* =========================================================
+   TABLES
+========================================================= */
 
 .table-wrap {
     overflow-x: auto;
@@ -308,7 +443,8 @@ tr:last-child td {
         grid-template-columns: repeat(3, 1fr);
     }
 
-    .info-grid {
+    .info-grid,
+    .account-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
@@ -335,8 +471,18 @@ tr:last-child td {
         font-size: 20px;
     }
 
-    .info-grid {
+    .info-grid,
+    .account-grid {
         grid-template-columns: 1fr;
+    }
+
+    .mode-switch {
+        width: 100%;
+    }
+
+    .mode-button {
+        flex: 1;
+        min-width: 0;
     }
 
     #chart {
@@ -353,7 +499,7 @@ tr:last-child td {
 <header>
     <div class="brand">
         <h1>KRAKEN BOT</h1>
-        <p>Full-market crypto scanner • ML day trading • paper performance</p>
+        <p>Full-market crypto scanner • ML day trading • autonomous execution</p>
     </div>
 
     <div id="statusBadge" class="status">
@@ -362,12 +508,116 @@ tr:last-child td {
 </header>
 
 
-<!-- PERFORMANCE -->
+<!-- =========================================================
+     ACCOUNT / MODE
+========================================================= -->
+
+<div id="modeSection" class="section">
+
+    <div class="section-header">
+
+        <div>
+            <h2 class="section-title">
+                Trading Mode
+            </h2>
+
+            <div class="section-subtitle">
+                Select whether the autonomous engine uses simulated or real execution.
+            </div>
+        </div>
+
+        <div id="modeStatus" class="mode-status paper">
+            PAPER TRADING
+        </div>
+
+    </div>
+
+    <div class="mode-panel">
+
+        <div class="mode-switch">
+
+            <button
+                id="paperModeButton"
+                class="mode-button active-paper"
+                onclick="setPaperMode()"
+            >
+                PAPER TRADING
+            </button>
+
+            <button
+                id="liveModeButton"
+                class="mode-button"
+                onclick="requestLiveMode()"
+            >
+                LIVE TRADING
+            </button>
+
+        </div>
+
+    </div>
+
+    <div id="liveWarning" class="live-warning">
+        <strong>🔴 LIVE TRADING ACTIVE</strong><br>
+        The bot is authorized to submit real orders to Kraken.
+        Make sure your risk limits and Kraken balance are correct.
+    </div>
+
+
+    <div class="account-grid">
+
+        <div class="account-box">
+            <div class="account-label">
+                Current Mode
+            </div>
+
+            <div id="accountMode" class="account-value paper-text">
+                PAPER TRADING
+            </div>
+        </div>
+
+        <div class="account-box">
+            <div class="account-label">
+                Available USD
+            </div>
+
+            <div id="accountAvailable" class="account-value">
+                $1,000.00
+            </div>
+        </div>
+
+        <div class="account-box">
+            <div class="account-label">
+                Total USD
+            </div>
+
+            <div id="accountTotal" class="account-value">
+                $1,000.00
+            </div>
+        </div>
+
+        <div class="account-box">
+            <div class="account-label">
+                Order Execution
+            </div>
+
+            <div id="executionStatus" class="account-value paper-text">
+                SIMULATED
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     PERFORMANCE
+========================================================= -->
 
 <div class="cards">
 
-    <div class="card">
-        <div class="label">Paper Equity</div>
+    <div id="equityCard" class="card">
+        <div class="label" id="equityLabel">Paper Equity</div>
         <div id="equity" class="value">$1,000.00</div>
     </div>
 
@@ -377,7 +627,7 @@ tr:last-child td {
     </div>
 
     <div class="card">
-        <div class="label">Available Cash</div>
+        <div class="label" id="cashLabel">Available Cash</div>
         <div id="cash" class="value">$1,000.00</div>
     </div>
 
@@ -399,19 +649,21 @@ tr:last-child td {
 </div>
 
 
-<!-- EQUITY -->
+<!-- =========================================================
+     EQUITY
+========================================================= -->
 
 <div class="section">
 
     <div class="section-header">
 
         <div>
-            <h2 class="section-title">
+            <h2 class="section-title" id="chartTitle">
                 Paper Equity Growth
             </h2>
 
             <div class="section-subtitle">
-                Simulated account value from bot performance
+                Account performance
             </div>
         </div>
 
@@ -426,7 +678,9 @@ tr:last-child td {
 </div>
 
 
-<!-- CONTROLS -->
+<!-- =========================================================
+     BOT CONTROLS
+========================================================= -->
 
 <div class="section">
 
@@ -438,7 +692,7 @@ tr:last-child td {
             </h2>
 
             <div class="section-subtitle">
-                Autonomous trading engine
+                Autonomous day-trading engine
             </div>
         </div>
 
@@ -475,7 +729,9 @@ tr:last-child td {
 </div>
 
 
-<!-- SIGNALS -->
+<!-- =========================================================
+     SIGNALS
+========================================================= -->
 
 <div class="section">
 
@@ -518,13 +774,11 @@ tr:last-child td {
             </thead>
 
             <tbody id="signals">
-
                 <tr>
                     <td colspan="11" class="empty">
                         Loading market signals...
                     </td>
                 </tr>
-
             </tbody>
 
         </table>
@@ -534,7 +788,9 @@ tr:last-child td {
 </div>
 
 
-<!-- POSITIONS -->
+<!-- =========================================================
+     POSITIONS
+========================================================= -->
 
 <div class="section">
 
@@ -570,13 +826,11 @@ tr:last-child td {
             </thead>
 
             <tbody id="positions">
-
                 <tr>
                     <td colspan="8" class="empty">
                         No open positions
                     </td>
                 </tr>
-
             </tbody>
 
         </table>
@@ -586,7 +840,9 @@ tr:last-child td {
 </div>
 
 
-<!-- KRAKEN / SCANNER -->
+<!-- =========================================================
+     KRAKEN / SCANNER
+========================================================= -->
 
 <div class="section">
 
@@ -598,7 +854,7 @@ tr:last-child td {
             </h2>
 
             <div class="section-subtitle">
-                Live connection and market discovery status
+                Connection and market discovery status
             </div>
         </div>
 
@@ -607,83 +863,43 @@ tr:last-child td {
     <div class="info-grid">
 
         <div class="info-box">
-            <div class="small-label">
-                Kraken Connection
-            </div>
-
-            <div id="krakenConnection" class="small-value">
-                —
-            </div>
+            <div class="small-label">Kraken Connection</div>
+            <div id="krakenConnection" class="small-value">—</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Authentication
-            </div>
-
-            <div id="krakenAuth" class="small-value">
-                —
-            </div>
+            <div class="small-label">Authentication</div>
+            <div id="krakenAuth" class="small-value">—</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Trading Mode
-            </div>
-
-            <div id="tradingMode" class="small-value">
-                —
-            </div>
+            <div class="small-label">Trading Mode</div>
+            <div id="tradingMode" class="small-value">—</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Markets Loaded
-            </div>
-
-            <div id="marketsLoaded" class="small-value">
-                —
-            </div>
+            <div class="small-label">Live Orders</div>
+            <div id="liveOrders" class="small-value">—</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Tickers Received
-            </div>
-
-            <div id="tickersReceived" class="small-value">
-                —
-            </div>
+            <div class="small-label">Markets Loaded</div>
+            <div id="marketsLoaded" class="small-value">—</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Markets Sent to ML
-            </div>
-
-            <div id="marketsToML" class="small-value">
-                —
-            </div>
+            <div class="small-label">Tickers Received</div>
+            <div id="tickersReceived" class="small-value">—</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Allowed Quotes
-            </div>
-
-            <div id="allowedQuotes" class="small-value">
-                —
-            </div>
+            <div class="small-label">Markets Sent to ML</div>
+            <div id="marketsToML" class="small-value">—</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Last Scanner Refresh
-            </div>
-
-            <div id="lastScannerRefresh" class="small-value">
-                —
-            </div>
+            <div class="small-label">Last Scanner Refresh</div>
+            <div id="lastScannerRefresh" class="small-value">—</div>
         </div>
 
     </div>
@@ -691,7 +907,9 @@ tr:last-child td {
 </div>
 
 
-<!-- PERFORMANCE DETAILS -->
+<!-- =========================================================
+     PERFORMANCE DETAILS
+========================================================= -->
 
 <div class="section">
 
@@ -712,83 +930,43 @@ tr:last-child td {
     <div class="info-grid">
 
         <div class="info-box">
-            <div class="small-label">
-                Total Trades
-            </div>
-
-            <div id="totalTrades" class="small-value">
-                0
-            </div>
+            <div class="small-label">Total Trades</div>
+            <div id="totalTrades" class="small-value">0</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Wins / Losses
-            </div>
-
-            <div id="winsLosses" class="small-value">
-                0 / 0
-            </div>
+            <div class="small-label">Wins / Losses</div>
+            <div id="winsLosses" class="small-value">0 / 0</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Profit Factor
-            </div>
-
-            <div id="profitFactor" class="small-value">
-                0.00
-            </div>
+            <div class="small-label">Profit Factor</div>
+            <div id="profitFactor" class="small-value">0.00</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Unrealized P&amp;L
-            </div>
-
-            <div id="unrealized" class="small-value">
-                $0.00
-            </div>
+            <div class="small-label">Unrealized P&amp;L</div>
+            <div id="unrealized" class="small-value">$0.00</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                24h P&amp;L
-            </div>
-
-            <div id="pnl24" class="small-value">
-                $0.00
-            </div>
+            <div class="small-label">24h P&amp;L</div>
+            <div id="pnl24" class="small-value">$0.00</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                24h Trades
-            </div>
-
-            <div id="trades24" class="small-value">
-                0
-            </div>
+            <div class="small-label">24h Trades</div>
+            <div id="trades24" class="small-value">0</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Drawdown
-            </div>
-
-            <div id="drawdown" class="small-value">
-                0.00%
-            </div>
+            <div class="small-label">Drawdown</div>
+            <div id="drawdown" class="small-value">0.00%</div>
         </div>
 
         <div class="info-box">
-            <div class="small-label">
-                Consecutive Losses
-            </div>
-
-            <div id="consecutiveLosses" class="small-value">
-                0
-            </div>
+            <div class="small-label">Consecutive Losses</div>
+            <div id="consecutiveLosses" class="small-value">0</div>
         </div>
 
     </div>
@@ -797,15 +975,11 @@ tr:last-child td {
 
 
 <div class="footer">
-    KRAKEN BOT • Automated AI day-trading engine • PAPER MODE
+    KRAKEN BOT • Autonomous AI day-trading engine • PAPER / LIVE TRADING
 </div>
 
 </div>
 
-
-<!-- =========================================================
-     JAVASCRIPT STARTS HERE
-========================================================== -->
 
 <script>
 
@@ -912,13 +1086,8 @@ function escapeHtml(value) {
 
 function isTrue(value) {
 
-    if (value === true) {
-        return true;
-    }
-
-    if (value === false) {
-        return false;
-    }
+    if (value === true) return true;
+    if (value === false) return false;
 
     if (typeof value === "number") {
         return value === 1;
@@ -933,13 +1102,561 @@ function isTrue(value) {
             "connected",
             "authenticated",
             "online",
-            "running"
+            "running",
+            "live"
         ].includes(
             value.toLowerCase()
         );
     }
 
     return false;
+}
+
+
+/* =========================================================
+   TRADING MODE
+========================================================= */
+
+let currentTradingMode = "PAPER";
+
+
+async function loadTradingMode() {
+
+    const response =
+        await fetch(
+            "/api/trading-mode",
+            {
+                cache: "no-store"
+            }
+        );
+
+    if (!response.ok) {
+        throw new Error(
+            "Trading mode request failed"
+        );
+    }
+
+    const data =
+        await response.json();
+
+    if (data.ok !== true) {
+        throw new Error(
+            data.error ??
+            "Unable to read trading mode"
+        );
+    }
+
+    currentTradingMode =
+        String(
+            data.mode ??
+            "PAPER"
+        ).toUpperCase();
+
+    applyTradingModeUI(
+        currentTradingMode
+    );
+
+    return data;
+}
+
+
+function applyTradingModeUI(mode) {
+
+    const live =
+        mode === "LIVE";
+
+    const modeStatus =
+        $("modeStatus");
+
+    const accountMode =
+        $("accountMode");
+
+    const executionStatus =
+        $("executionStatus");
+
+    const tradingMode =
+        $("tradingMode");
+
+    const liveOrders =
+        $("liveOrders");
+
+    const warning =
+        $("liveWarning");
+
+    const section =
+        $("modeSection");
+
+    const liveButton =
+        $("liveModeButton");
+
+    const paperButton =
+        $("paperModeButton");
+
+    const equityLabel =
+        $("equityLabel");
+
+    const cashLabel =
+        $("cashLabel");
+
+    const chartTitle =
+        $("chartTitle");
+
+    const equityCard =
+        $("equityCard");
+
+
+    if (live) {
+
+        modeStatus.textContent =
+            "🔴 LIVE TRADING";
+
+        modeStatus.className =
+            "mode-status live";
+
+
+        accountMode.textContent =
+            "🔴 LIVE TRADING";
+
+        accountMode.className =
+            "account-value live-text";
+
+
+        executionStatus.textContent =
+            "REAL ORDERS";
+
+        executionStatus.className =
+            "account-value live-text";
+
+
+        tradingMode.textContent =
+            "🔴 LIVE TRADING";
+
+        tradingMode.className =
+            "small-value live-text";
+
+
+        liveOrders.textContent =
+            "ENABLED";
+
+        liveOrders.className =
+            "small-value live-text";
+
+
+        warning.classList.add(
+            "visible"
+        );
+
+
+        section.classList.add(
+            "live-section"
+        );
+
+
+        liveButton.className =
+            "mode-button active-live";
+
+
+        paperButton.className =
+            "mode-button";
+
+
+        equityLabel.textContent =
+            "Kraken Equity";
+
+
+        cashLabel.textContent =
+            "Kraken Available";
+
+
+        chartTitle.textContent =
+            "Live Trading Equity";
+
+
+        equityCard.classList.add(
+            "live-card"
+        );
+
+    } else {
+
+        modeStatus.textContent =
+            "PAPER TRADING";
+
+        modeStatus.className =
+            "mode-status paper";
+
+
+        accountMode.textContent =
+            "PAPER TRADING";
+
+        accountMode.className =
+            "account-value paper-text";
+
+
+        executionStatus.textContent =
+            "SIMULATED";
+
+        executionStatus.className =
+            "account-value paper-text";
+
+
+        tradingMode.textContent =
+            "PAPER TRADING";
+
+        tradingMode.className =
+            "small-value paper-text";
+
+
+        liveOrders.textContent =
+            "DISABLED";
+
+        liveOrders.className =
+            "small-value system-warning";
+
+
+        warning.classList.remove(
+            "visible"
+        );
+
+
+        section.classList.remove(
+            "live-section"
+        );
+
+
+        liveButton.className =
+            "mode-button";
+
+
+        paperButton.className =
+            "mode-button active-paper";
+
+
+        equityLabel.textContent =
+            "Paper Equity";
+
+
+        cashLabel.textContent =
+            "Available Cash";
+
+
+        chartTitle.textContent =
+            "Paper Equity Growth";
+
+
+        equityCard.classList.remove(
+            "live-card"
+        );
+    }
+}
+
+
+async function setPaperMode() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/trading-mode",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        mode: "PAPER"
+                    }),
+                    cache: "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (data.ok !== true) {
+
+            alert(
+                "Could not switch to PAPER:\n\n" +
+                (
+                    data.error ??
+                    "Unknown error"
+                )
+            );
+
+            return;
+        }
+
+
+        currentTradingMode =
+            "PAPER";
+
+        applyTradingModeUI(
+            "PAPER"
+        );
+
+        await refresh();
+
+    } catch (error) {
+
+        console.error(
+            "PAPER MODE ERROR:",
+            error
+        );
+
+        alert(
+            "Unable to change trading mode:\n\n" +
+            error.message
+        );
+    }
+}
+
+
+async function requestLiveMode() {
+
+    const confirmed =
+        window.confirm(
+            "⚠️ ENABLE LIVE TRADING?\n\n" +
+            "This will authorize the bot to submit REAL orders to Kraken.\n\n" +
+            "Only continue when you are ready to risk real money."
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    const confirmation =
+        window.prompt(
+            "Type ENABLE LIVE to confirm:"
+        );
+
+
+    if (
+        confirmation !==
+        "ENABLE LIVE"
+    ) {
+
+        alert(
+            "LIVE TRADING was not enabled.\n\n" +
+            "You must type ENABLE LIVE exactly."
+        );
+
+        return;
+    }
+
+
+    const button =
+        $("liveModeButton");
+
+
+    try {
+
+        button.disabled = true;
+        button.textContent =
+            "VERIFYING...";
+
+
+        const response =
+            await fetch(
+                "/api/trading-mode",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        mode: "LIVE",
+                        confirmation:
+                            "ENABLE LIVE"
+                    }),
+                    cache: "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (data.ok !== true) {
+
+            alert(
+                "LIVE TRADING was NOT enabled:\n\n" +
+                (
+                    data.error ??
+                    "Unknown error"
+                )
+            );
+
+            applyTradingModeUI(
+                "PAPER"
+            );
+
+            return;
+        }
+
+
+        currentTradingMode =
+            "LIVE";
+
+
+        applyTradingModeUI(
+            "LIVE"
+        );
+
+
+        const available =
+            data.account?.free;
+
+
+        const total =
+            data.account?.total;
+
+
+        alert(
+            "🔴 LIVE TRADING ENABLED\n\n" +
+            "Available USD: " +
+            money(available) +
+            "\nTotal USD: " +
+            money(total) +
+            "\n\nThe bot is now authorized to submit real Kraken orders."
+        );
+
+
+        await refresh();
+
+    } catch (error) {
+
+        console.error(
+            "LIVE MODE ERROR:",
+            error
+        );
+
+
+        alert(
+            "LIVE TRADING was NOT enabled:\n\n" +
+            error.message
+        );
+
+        applyTradingModeUI(
+            "PAPER"
+        );
+
+    } finally {
+
+        button.disabled = false;
+        button.textContent =
+            "LIVE TRADING";
+    }
+}
+
+
+/* =========================================================
+   BALANCE
+========================================================= */
+
+async function refreshBalance() {
+
+    const response =
+        await fetch(
+            "/api/balance",
+            {
+                cache: "no-store"
+            }
+        );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            "Balance request failed"
+        );
+    }
+
+
+    const data =
+        await response.json();
+
+
+    if (
+        data.ok !== true
+    ) {
+
+        throw new Error(
+            data.error ??
+            "Balance unavailable"
+        );
+    }
+
+
+    const live =
+        String(
+            data.mode ??
+            "PAPER"
+        ).toUpperCase() ===
+        "LIVE";
+
+
+    if (live) {
+
+        $("accountAvailable")
+            .textContent =
+            money(
+                data.free ??
+                data.cash ??
+                0
+            );
+
+
+        $("accountTotal")
+            .textContent =
+            money(
+                data.total ??
+                data.equity ??
+                0
+            );
+
+
+        $("equity")
+            .textContent =
+            money(
+                data.total ??
+                data.equity ??
+                0
+            );
+
+
+        $("cash")
+            .textContent =
+            money(
+                data.free ??
+                data.cash ??
+                0
+            );
+
+    } else {
+
+        $("accountAvailable")
+            .textContent =
+            money(
+                data.free ??
+                data.cash ??
+                0
+            );
+
+
+        $("accountTotal")
+            .textContent =
+            money(
+                data.total ??
+                data.equity ??
+                0
+            );
+    }
 }
 
 
@@ -953,23 +1670,40 @@ function drawEquity(history) {
         history = [];
     }
 
-    const canvas = $("chart");
+    const canvas =
+        $("chart");
 
     if (!canvas) {
         return;
     }
 
-    const rect = canvas.getBoundingClientRect();
+    const rect =
+        canvas.getBoundingClientRect();
 
-    const width = Math.max(rect.width, 300);
-    const height = Math.max(rect.height, 200);
+    const width =
+        Math.max(
+            rect.width,
+            300
+        );
 
-    const ratio = window.devicePixelRatio || 1;
+    const height =
+        Math.max(
+            rect.height,
+            200
+        );
 
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
+    const ratio =
+        window.devicePixelRatio ||
+        1;
 
-    const ctx = canvas.getContext("2d");
+    canvas.width =
+        width * ratio;
+
+    canvas.height =
+        height * ratio;
+
+    const ctx =
+        canvas.getContext("2d");
 
     if (!ctx) {
         return;
@@ -994,9 +1728,14 @@ function drawEquity(history) {
 
     if (!history.length) {
 
-        ctx.fillStyle = "#667384";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
+        ctx.fillStyle =
+            "#667384";
+
+        ctx.font =
+            "14px Arial";
+
+        ctx.textAlign =
+            "center";
 
         ctx.fillText(
             "Waiting for equity snapshots...",
@@ -1004,81 +1743,78 @@ function drawEquity(history) {
             height / 2
         );
 
-        $("chartInfo").textContent =
-            "The bot will populate this chart automatically.";
-
         return;
     }
 
 
-    const values = history
-        .map(item => {
+    const values =
+        history
+            .map(item => {
 
-            if (
-                item &&
-                typeof item === "object"
-            ) {
+                if (
+                    item &&
+                    typeof item === "object"
+                ) {
 
-                return Number(
-                    item.equity ??
-                    item.value ??
-                    item.paper_equity ??
-                    0
-                );
-            }
+                    return Number(
+                        item.equity ??
+                        item.value ??
+                        item.paper_equity ??
+                        0
+                    );
+                }
 
-            return Number(item);
+                return Number(item);
 
-        })
-        .filter(
-            value =>
-                Number.isFinite(value)
-        );
+            })
+            .filter(
+                value =>
+                    Number.isFinite(value)
+            );
 
 
     if (!values.length) {
-
-        ctx.fillStyle = "#667384";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-
-        ctx.fillText(
-            "Waiting for valid equity data...",
-            width / 2,
-            height / 2
-        );
-
-        $("chartInfo").textContent =
-            "No valid equity values.";
-
         return;
     }
 
 
-    const minValue = Math.min(...values);
-    const maxValue = Math.max(...values);
+    const minValue =
+        Math.min(...values);
 
-    const padding = 45;
+    const maxValue =
+        Math.max(...values);
+
+    const padding =
+        45;
 
     const range =
         maxValue - minValue === 0
             ? Math.max(
-                Math.abs(maxValue) * 0.01,
+                Math.abs(maxValue) * .01,
                 1
             )
             : maxValue - minValue;
 
 
-    /* GRID */
+    ctx.strokeStyle =
+        "#151d27";
 
-    ctx.strokeStyle = "#151d27";
-    ctx.lineWidth = 1;
+    ctx.lineWidth =
+        1;
 
-    for (let i = 0; i < 5; i++) {
+
+    for (
+        let i = 0;
+        i < 5;
+        i++
+    ) {
 
         const y =
             padding +
-            ((height - padding * 2) / 4) * i;
+            (
+                (height - padding * 2) /
+                4
+            ) * i;
 
         ctx.beginPath();
 
@@ -1096,13 +1832,21 @@ function drawEquity(history) {
     }
 
 
-    /* Y LABELS */
+    ctx.fillStyle =
+        "#657182";
 
-    ctx.fillStyle = "#657182";
-    ctx.font = "11px Arial";
-    ctx.textAlign = "left";
+    ctx.font =
+        "11px Arial";
 
-    for (let i = 0; i < 5; i++) {
+    ctx.textAlign =
+        "left";
+
+
+    for (
+        let i = 0;
+        i < 5;
+        i++
+    ) {
 
         const value =
             maxValue -
@@ -1110,7 +1854,10 @@ function drawEquity(history) {
 
         const y =
             padding +
-            ((height - padding * 2) / 4) * i;
+            (
+                (height - padding * 2) /
+                4
+            ) * i;
 
         ctx.fillText(
             money(value),
@@ -1120,9 +1867,8 @@ function drawEquity(history) {
     }
 
 
-    /* LINE */
-
     ctx.beginPath();
+
 
     values.forEach(
         (value, index) => {
@@ -1141,6 +1887,7 @@ function drawEquity(history) {
                     padding * 2
                 );
 
+
             const y =
                 padding +
                 (
@@ -1152,20 +1899,32 @@ function drawEquity(history) {
                     padding * 2
                 );
 
+
             if (index === 0) {
-                ctx.moveTo(x, y);
+                ctx.moveTo(
+                    x,
+                    y
+                );
             } else {
-                ctx.lineTo(x, y);
+                ctx.lineTo(
+                    x,
+                    y
+                );
             }
         }
     );
 
-    ctx.strokeStyle = "#f4f6f8";
-    ctx.lineWidth = 2;
+
+    ctx.strokeStyle =
+        currentTradingMode === "LIVE"
+            ? "#ff7777"
+            : "#f4f6f8";
+
+    ctx.lineWidth =
+        2;
+
     ctx.stroke();
 
-
-    /* CURRENT POINT */
 
     const lastValue =
         values[values.length - 1];
@@ -1184,6 +1943,7 @@ function drawEquity(history) {
             padding * 2
         );
 
+
     ctx.beginPath();
 
     ctx.arc(
@@ -1194,7 +1954,11 @@ function drawEquity(history) {
         Math.PI * 2
     );
 
-    ctx.fillStyle = "#f4f6f8";
+    ctx.fillStyle =
+        currentTradingMode === "LIVE"
+            ? "#ff7777"
+            : "#f4f6f8";
+
     ctx.fill();
 
 
@@ -1217,6 +1981,7 @@ async function refreshStatus() {
             }
         );
 
+
     if (!response.ok) {
 
         throw new Error(
@@ -1225,20 +1990,8 @@ async function refreshStatus() {
         );
     }
 
-    const data =
-        await response.json();
 
-    if (
-        !data ||
-        typeof data !== "object"
-    ) {
-
-        throw new Error(
-            "Invalid status response"
-        );
-    }
-
-    return data;
+    return await response.json();
 }
 
 
@@ -1256,6 +2009,7 @@ async function refreshPerformance() {
             }
         );
 
+
     if (!response.ok) {
 
         throw new Error(
@@ -1263,13 +2017,13 @@ async function refreshPerformance() {
         );
     }
 
+
     const data =
         await response.json();
 
 
     const d =
-        data &&
-        data.stats &&
+        data?.stats &&
         typeof data.stats === "object"
             ? data.stats
             : (
@@ -1303,7 +2057,6 @@ async function refreshPerformance() {
     $("cash").textContent =
         money(
             d.paper_balance ??
-            d.available_cash ??
             d.cash ??
             0
         );
@@ -1359,24 +2112,8 @@ async function refreshPerformance() {
         );
 
 
-    $("unrealized").className =
-        "small-value " +
-        colorClass(
-            d.unrealized_pnl ??
-            0
-        );
-
-
     $("pnl24").textContent =
         signedMoney(
-            d.last_24h_pnl ??
-            0
-        );
-
-
-    $("pnl24").className =
-        "small-value " +
-        colorClass(
             d.last_24h_pnl ??
             0
         );
@@ -1405,8 +2142,6 @@ async function refreshPerformance() {
         );
 
 
-    /* EQUITY */
-
     const historyResponse =
         await fetch(
             "/api/equity?limit=240",
@@ -1417,7 +2152,6 @@ async function refreshPerformance() {
 
 
     if (!historyResponse.ok) {
-
         throw new Error(
             "Equity request failed"
         );
@@ -1460,7 +2194,6 @@ async function refreshSignals() {
 
 
     if (!response.ok) {
-
         throw new Error(
             "Signals request failed"
         );
@@ -1507,152 +2240,148 @@ async function refreshSignals() {
 
 
     body.innerHTML =
-        signals
-            .map(
-                (s, index) => {
+        signals.map(
+            (s, index) => {
 
-                    const direction =
-                        String(
-                            s.direction ??
-                            s.prediction ??
-                            "NEUTRAL"
-                        ).toUpperCase();
-
-
-                    let directionClass =
-                        "neutral-badge";
+                const direction =
+                    String(
+                        s.direction ??
+                        s.prediction ??
+                        "NEUTRAL"
+                    ).toUpperCase();
 
 
-                    if (
-                        direction === "LONG"
-                    ) {
-                        directionClass =
-                            "long";
-                    }
+                let directionClass =
+                    "neutral-badge";
 
 
-                    if (
-                        direction === "SHORT"
-                    ) {
-                        directionClass =
-                            "short";
-                    }
-
-
-                    const probability =
-                        s.probability ??
-                        s.ai_probability ??
-                        s.ml_probability ??
-                        0;
-
-
-                    const expectedMove =
-                        s.expected_move ??
-                        s.expected_move_pct ??
-                        0;
-
-
-                    const score =
-                        s.score ??
-                        s.combined_score ??
-                        0;
-
-
-                    const strategy =
-                        s.strategy_score ??
-                        s.strategy ??
-                        0;
-
-
-                    const regime =
-                        s.regime ??
-                        "—";
-
-
-                    const volume =
-                        s.quote_volume ??
-                        s.volume_24h ??
-                        0;
-
-
-                    const tradeable =
-                        isTrue(
-                            s.tradeable
-                        );
-
-
-                    return `
-                        <tr>
-
-                            <td>
-                                ${escapeHtml(
-                                    s.rank ??
-                                    index + 1
-                                )}
-                            </td>
-
-                            <td class="symbol">
-                                ${escapeHtml(
-                                    s.symbol ??
-                                    "—"
-                                )}
-                            </td>
-
-                            <td>
-                                ${money(
-                                    s.last ??
-                                    s.price ??
-                                    0
-                                )}
-                            </td>
-
-                            <td>
-                                ${money(volume)}
-                            </td>
-
-                            <td>
-                                <span class="badge ${directionClass}">
-                                    ${escapeHtml(direction)}
-                                </span>
-                            </td>
-
-                            <td>
-                                ${pct(probability)}
-                            </td>
-
-                            <td>
-                                ${pct(expectedMove)}
-                            </td>
-
-                            <td>
-                                ${number(score, 3)}
-                            </td>
-
-                            <td>
-                                ${number(strategy, 3)}
-                            </td>
-
-                            <td>
-                                ${escapeHtml(regime)}
-                            </td>
-
-                            <td class="${
-                                tradeable
-                                    ? "tradeable"
-                                    : "not-tradeable"
-                            }">
-                                ${
-                                    tradeable
-                                        ? "YES"
-                                        : "NO"
-                                }
-                            </td>
-
-                        </tr>
-                    `;
+                if (
+                    direction === "LONG"
+                ) {
+                    directionClass =
+                        "long";
                 }
-            )
-            .join("");
+
+
+                if (
+                    direction === "SHORT"
+                ) {
+                    directionClass =
+                        "short";
+                }
+
+
+                const probability =
+                    s.probability ??
+                    s.ai_probability ??
+                    s.ml_probability ??
+                    0;
+
+
+                const expectedMove =
+                    s.expected_move ??
+                    s.expected_move_pct ??
+                    0;
+
+
+                const score =
+                    s.score ??
+                    s.combined_score ??
+                    0;
+
+
+                const strategy =
+                    s.strategy_score ??
+                    s.strategy ??
+                    0;
+
+
+                const volume =
+                    s.quote_volume ??
+                    s.volume_24h ??
+                    0;
+
+
+                const tradeable =
+                    isTrue(
+                        s.tradeable
+                    );
+
+
+                return `
+                    <tr>
+
+                        <td>
+                            ${escapeHtml(
+                                s.rank ??
+                                index + 1
+                            )}
+                        </td>
+
+                        <td class="symbol">
+                            ${escapeHtml(
+                                s.symbol ??
+                                "—"
+                            )}
+                        </td>
+
+                        <td>
+                            ${money(
+                                s.last ??
+                                s.price ??
+                                0
+                            )}
+                        </td>
+
+                        <td>
+                            ${money(volume)}
+                        </td>
+
+                        <td>
+                            <span class="badge ${directionClass}">
+                                ${escapeHtml(direction)}
+                            </span>
+                        </td>
+
+                        <td>
+                            ${pct(probability)}
+                        </td>
+
+                        <td>
+                            ${pct(expectedMove)}
+                        </td>
+
+                        <td>
+                            ${number(score, 3)}
+                        </td>
+
+                        <td>
+                            ${number(strategy, 3)}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(
+                                s.regime ??
+                                "—"
+                            )}
+                        </td>
+
+                        <td class="${
+                            tradeable
+                                ? "tradeable"
+                                : "not-tradeable"
+                        }">
+                            ${
+                                tradeable
+                                    ? "YES"
+                                    : "NO"
+                            }
+                        </td>
+
+                    </tr>
+                `;
+            }
+        ).join("");
 }
 
 
@@ -1672,7 +2401,6 @@ async function refreshPositions() {
 
 
     if (!response.ok) {
-
         throw new Error(
             "Positions request failed"
         );
@@ -1712,83 +2440,81 @@ async function refreshPositions() {
 
 
     body.innerHTML =
-        positions
-            .map(
-                p => {
+        positions.map(
+            p => {
 
-                    const pnl =
-                        p.unrealized_pnl ??
-                        p.pnl ??
-                        0;
+                const pnl =
+                    p.unrealized_pnl ??
+                    p.pnl ??
+                    0;
 
 
-                    return `
-                        <tr>
+                return `
+                    <tr>
 
-                            <td class="symbol">
-                                ${escapeHtml(
-                                    p.symbol ??
-                                    "—"
-                                )}
-                            </td>
+                        <td class="symbol">
+                            ${escapeHtml(
+                                p.symbol ??
+                                "—"
+                            )}
+                        </td>
 
-                            <td>
-                                ${money(
-                                    p.entry_price ??
-                                    p.entry ??
-                                    0
-                                )}
-                            </td>
+                        <td>
+                            ${money(
+                                p.entry_price ??
+                                p.entry ??
+                                0
+                            )}
+                        </td>
 
-                            <td>
-                                ${money(
-                                    p.current_price ??
-                                    p.current ??
-                                    0
-                                )}
-                            </td>
+                        <td>
+                            ${money(
+                                p.current_price ??
+                                p.current ??
+                                0
+                            )}
+                        </td>
 
-                            <td>
-                                ${number(
-                                    p.amount ??
-                                    0,
-                                    6
-                                )}
-                            </td>
+                        <td>
+                            ${number(
+                                p.amount ??
+                                0,
+                                6
+                            )}
+                        </td>
 
-                            <td>
-                                ${money(
-                                    p.stop_loss ??
-                                    p.stop ??
-                                    0
-                                )}
-                            </td>
+                        <td>
+                            ${money(
+                                p.stop_loss ??
+                                p.stop ??
+                                0
+                            )}
+                        </td>
 
-                            <td>
-                                ${money(
-                                    p.take_profit ??
-                                    p.target ??
-                                    0
-                                )}
-                            </td>
+                        <td>
+                            ${money(
+                                p.take_profit ??
+                                p.target ??
+                                0
+                            )}
+                        </td>
 
-                            <td class="${colorClass(pnl)}">
-                                ${signedMoney(pnl)}
-                            </td>
+                        <td class="${colorClass(pnl)}">
+                            ${signedMoney(pnl)}
+                        </td>
 
-                            <td>
-                                ${escapeHtml(
-                                    p.opened_at ??
-                                    p.timestamp ??
-                                    "—"
-                                )}
-                            </td>
+                        <td>
+                            ${escapeHtml(
+                                p.opened_at ??
+                                p.timestamp ??
+                                "—"
+                            )}
+                        </td>
 
-                        </tr>
-                    `;
-                }
-            )
-            .join("");
+                    </tr>
+                `;
+            }
+        ).join("");
 }
 
 
@@ -1816,6 +2542,23 @@ async function refresh() {
             typeof status.scanner === "object"
                 ? status.scanner
                 : {};
+
+
+        const mode =
+            String(
+                status.mode ??
+                kraken.mode ??
+                "PAPER"
+            ).toUpperCase();
+
+
+        currentTradingMode =
+            mode;
+
+
+        applyTradingModeUI(
+            mode
+        );
 
 
         const authenticated =
@@ -1853,6 +2596,34 @@ async function refresh() {
         ===================================================== */
 
         if (
+            mode === "LIVE" &&
+            authenticated &&
+            running &&
+            workerAlive
+        ) {
+
+            $("statusBadge").className =
+                "status live";
+
+            $("statusBadge").textContent =
+                "🔴 Kraken Authenticated • Bot Running • LIVE TRADING";
+
+        }
+
+        else if (
+            mode === "LIVE" &&
+            authenticated
+        ) {
+
+            $("statusBadge").className =
+                "status live";
+
+            $("statusBadge").textContent =
+                "🔴 Kraken Authenticated • Bot Stopped • LIVE TRADING";
+
+        }
+
+        else if (
             authenticated &&
             running &&
             workerAlive
@@ -1862,7 +2633,7 @@ async function refresh() {
                 "status online";
 
             $("statusBadge").textContent =
-                "Kraken Authenticated • Bot Running • PAPER";
+                "Kraken Authenticated • Bot Running • PAPER TRADING";
 
         }
 
@@ -1874,7 +2645,7 @@ async function refresh() {
                 "status online";
 
             $("statusBadge").textContent =
-                "Kraken Authenticated • Bot Stopped • PAPER";
+                "Kraken Authenticated • Bot Stopped • PAPER TRADING";
 
         }
 
@@ -1942,12 +2713,12 @@ async function refresh() {
             );
 
 
-        $("tradingMode").textContent =
+        $("liveOrders").textContent =
             isTrue(
                 kraken.live_orders_enabled
             )
-                ? "LIVE"
-                : "PAPER";
+                ? "ENABLED"
+                : "DISABLED";
 
 
         $("marketsLoaded").textContent =
@@ -1972,17 +2743,6 @@ async function refresh() {
                 0,
                 0
             );
-
-
-        $("allowedQuotes").textContent =
-            Array.isArray(
-                scanner.allowed_quotes
-            )
-                ? scanner.allowed_quotes.join(", ")
-                : (
-                    scanner.allowed_quotes ??
-                    "—"
-                );
 
 
         if (
@@ -2029,7 +2789,24 @@ async function refresh() {
 
 
         /* =====================================================
-           LOAD DASHBOARD DATA
+           ACCOUNT
+        ===================================================== */
+
+        try {
+
+            await refreshBalance();
+
+        } catch (balanceError) {
+
+            console.warn(
+                "BALANCE ERROR:",
+                balanceError
+            );
+        }
+
+
+        /* =====================================================
+           OTHER DATA
         ===================================================== */
 
         const results =
@@ -2053,33 +2830,7 @@ async function refresh() {
                 "Some dashboard data failed:",
                 failures
             );
-
-
-            if (
-                authenticated &&
-                running
-            ) {
-
-                $("statusBadge").className =
-                    "status warning";
-
-                $("statusBadge").textContent =
-                    "Bot Running • Some dashboard data unavailable";
-
-            }
-
-            else if (
-                authenticated
-            ) {
-
-                $("statusBadge").className =
-                    "status online";
-
-                $("statusBadge").textContent =
-                    "Kraken Authenticated • Bot Stopped • PAPER";
-            }
         }
-
 
     } catch (error) {
 
@@ -2112,7 +2863,8 @@ async function startBot() {
     try {
 
         button.disabled = true;
-        button.textContent = "Starting...";
+        button.textContent =
+            "Starting...";
 
 
         const response =
@@ -2133,12 +2885,6 @@ async function startBot() {
             await response.json();
 
 
-        console.log(
-            "START RESPONSE:",
-            data
-        );
-
-
         if (
             data.ok !== true
         ) {
@@ -2151,6 +2897,7 @@ async function startBot() {
                 )
             );
 
+            return;
         }
 
 
@@ -2173,7 +2920,8 @@ async function startBot() {
     } finally {
 
         button.disabled = false;
-        button.textContent = "Start Bot";
+        button.textContent =
+            "Start Bot";
     }
 }
 
@@ -2191,7 +2939,8 @@ async function stopBot() {
     try {
 
         button.disabled = true;
-        button.textContent = "Stopping...";
+        button.textContent =
+            "Stopping...";
 
 
         const response =
@@ -2212,10 +2961,20 @@ async function stopBot() {
             await response.json();
 
 
-        console.log(
-            "STOP RESPONSE:",
-            data
-        );
+        if (
+            data.ok !== true
+        ) {
+
+            alert(
+                "Unable to stop bot:\n\n" +
+                (
+                    data.error ??
+                    "Unknown error"
+                )
+            );
+
+            return;
+        }
 
 
         await refresh();
@@ -2237,7 +2996,8 @@ async function stopBot() {
     } finally {
 
         button.disabled = false;
-        button.textContent = "Stop Bot";
+        button.textContent =
+            "Stop Bot";
     }
 }
 
@@ -2251,7 +3011,7 @@ async function runScan() {
     try {
 
         $("signalInfo").textContent =
-            "Running full-market scan...";
+            "Queuing full-market scan...";
 
 
         const response =
@@ -2272,18 +3032,13 @@ async function runScan() {
             await response.json();
 
 
-        console.log(
-            "SCAN RESPONSE:",
-            data
-        );
-
-
         if (
             data.ok !== true
         ) {
 
             $("signalInfo").textContent =
                 "Scan failed";
+
 
             alert(
                 "Scan failed:\n\n" +
@@ -2297,8 +3052,16 @@ async function runScan() {
         }
 
 
-        await refresh();
+        $("signalInfo").textContent =
+            data.already_scanning
+                ? "A scan is already running..."
+                : "Full-market scan queued";
 
+
+        setTimeout(
+            refresh,
+            1000
+        );
 
     } catch (error) {
 
@@ -2321,7 +3084,7 @@ async function runScan() {
 
 
 /* =========================================================
-   WINDOW RESIZE
+   RESIZE
 ========================================================= */
 
 window.addEventListener(
