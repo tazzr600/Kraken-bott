@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ccxt
+import threading
+from typing import Any, Dict, Optional
 
 
 class KrakenTrader:
@@ -24,22 +26,119 @@ class KrakenTrader:
 
         self.last_balance = None
         self.last_auth_test = None
+        self.last_order = None
 
-    # --------------------------------------------------
+        # --------------------------------------------------
+        # RUNTIME TRADING MODE
+        # --------------------------------------------------
+        #
+        # Always starts in PAPER.
+        #
+        # The dashboard can explicitly switch to LIVE.
+        # This prevents a Railway restart/redeploy from
+        # automatically turning real trading on.
+        #
+        self._mode = "PAPER"
+
+        self._mode_lock = threading.Lock()
+
+    # ======================================================
+    # TRADING MODE
+    # ======================================================
+
+    @property
+    def mode(self) -> str:
+
+        with self._mode_lock:
+            return self._mode
+
+    @property
+    def is_paper(self) -> bool:
+        return self.mode == "PAPER"
+
+    @property
+    def is_live(self) -> bool:
+        return self.mode == "LIVE"
+
+    def set_mode(self, mode: str):
+
+        mode = str(mode).strip().upper()
+
+        if mode not in {"PAPER", "LIVE"}:
+
+            raise ValueError(
+                "Trading mode must be PAPER or LIVE"
+            )
+
+        # --------------------------------------------------
+        # PAPER
+        # --------------------------------------------------
+
+        if mode == "PAPER":
+
+            with self._mode_lock:
+                self._mode = "PAPER"
+
+            return {
+                "ok": True,
+                "mode": "PAPER",
+                "live_orders_enabled": False,
+            }
+
+        # --------------------------------------------------
+        # LIVE
+        # --------------------------------------------------
+
+        # LIVE requires both configuration flags AND
+        # successful Kraken authentication.
+
+        if not self.settings.live_trading:
+
+            raise RuntimeError(
+                "LIVE trading is disabled by configuration. "
+                "Set LIVE_TRADING=true before enabling LIVE mode."
+            )
+
+        if self.settings.dry_run:
+
+            raise RuntimeError(
+                "DRY_RUN is enabled. "
+                "Disable DRY_RUN before enabling LIVE mode."
+            )
+
+        if not self.authenticated:
+
+            raise RuntimeError(
+                "Kraken account is not authenticated. "
+                "Test Kraken authentication before enabling LIVE mode."
+            )
+
+        with self._mode_lock:
+            self._mode = "LIVE"
+
+        return {
+            "ok": True,
+            "mode": "LIVE",
+            "live_orders_enabled": True,
+        }
+
+    # ======================================================
     # LIVE ORDER SAFETY
-    # --------------------------------------------------
+    # ======================================================
 
     @property
     def live_orders_enabled(self):
 
         return (
-            self.settings.live_trading
+            self.mode == "LIVE"
+            and self.settings.live_trading
             and not self.settings.dry_run
+            and self.authenticated
         )
 
-    # --------------------------------------------------
+    # ======================================================
     # CREDENTIAL CHECK
-    # --------------------------------------------------
+    # ======================================================
 
     def credentials_configured(self):
 
@@ -62,9 +161,9 @@ class KrakenTrader:
                 "KRAKEN_API_SECRET is missing"
             )
 
-    # --------------------------------------------------
-    # PUBLIC CONNECTION
-    # --------------------------------------------------
+    # ======================================================
+    # CONNECTION
+    # ======================================================
 
     def test_connection(self):
 
@@ -86,10 +185,7 @@ class KrakenTrader:
 
             self.connected = False
 
-            self.last_error_type = (
-                type(e).__name__
-            )
-
+            self.last_error_type = type(e).__name__
             self.last_error = (
                 f"{type(e).__name__}: {e}"
             )
@@ -100,9 +196,9 @@ class KrakenTrader:
                 "error": self.last_error,
             }
 
-    # --------------------------------------------------
-    # PRIVATE AUTHENTICATION
-    # --------------------------------------------------
+    # ======================================================
+    # AUTHENTICATION
+    # ======================================================
 
     def test_authentication(self):
 
@@ -110,8 +206,6 @@ class KrakenTrader:
 
             self._require_credentials()
 
-            # Force CCXT to use the private Kraken
-            # balance endpoint.
             balance = self.exchange.fetch_balance()
 
             self.last_balance = balance
@@ -124,14 +218,16 @@ class KrakenTrader:
 
             self.last_auth_test = {
                 "success": True,
-                "message": "Kraken private API authenticated",
+                "message":
+                    "Kraken private API authenticated",
             }
 
             return {
                 "connected": True,
                 "authenticated": True,
                 "error": None,
-                "message": "Kraken authentication successful",
+                "message":
+                    "Kraken authentication successful",
             }
 
         except ccxt.AuthenticationError as e:
@@ -155,7 +251,8 @@ class KrakenTrader:
                 "connected": self.connected,
                 "authenticated": False,
                 "error": self.last_error,
-                "error_type": self.last_error_type,
+                "error_type":
+                    self.last_error_type,
             }
 
         except ccxt.PermissionDenied as e:
@@ -179,17 +276,15 @@ class KrakenTrader:
                 "connected": self.connected,
                 "authenticated": False,
                 "error": self.last_error,
-                "error_type": self.last_error_type,
+                "error_type":
+                    self.last_error_type,
             }
 
         except Exception as e:
 
             self.authenticated = False
 
-            self.last_error_type = (
-                type(e).__name__
-            )
-
+            self.last_error_type = type(e).__name__
             self.last_error = (
                 f"{type(e).__name__}: {e}"
             )
@@ -203,33 +298,44 @@ class KrakenTrader:
                 "connected": self.connected,
                 "authenticated": False,
                 "error": self.last_error,
-                "error_type": self.last_error_type,
+                "error_type":
+                    self.last_error_type,
             }
 
-    # --------------------------------------------------
+    # ======================================================
     # STATUS
-    # --------------------------------------------------
+    # ======================================================
 
     def connection_status(self):
 
         return {
             "connected": self.connected,
             "authenticated": self.authenticated,
-            "live_orders_enabled": self.live_orders_enabled,
-            "credentials_configured": self.credentials_configured(),
-            "error": self.last_error,
-            "error_type": self.last_error_type,
+
+            "mode": self.mode,
+
+            "live_orders_enabled":
+                self.live_orders_enabled,
+
+            "credentials_configured":
+                self.credentials_configured(),
+
+            "error":
+                self.last_error,
+
+            "error_type":
+                self.last_error_type,
         }
 
-    # --------------------------------------------------
+    # ======================================================
     # MARKET DATA
-    # --------------------------------------------------
+    # ======================================================
 
     def fetch_ohlcv(
         self,
         symbol,
         timeframe,
-        limit
+        limit,
     ):
 
         return self.exchange.fetch_ohlcv(
@@ -244,18 +350,32 @@ class KrakenTrader:
             symbol
         )
 
-    # --------------------------------------------------
-    # ACCOUNT BALANCE
-    # --------------------------------------------------
+    # ======================================================
+    # BALANCE
+    # ======================================================
 
-    def free_quote(
-        self,
-        currency="USD"
-    ):
+    def fetch_balance(self):
 
         self._require_credentials()
 
+        if not self.authenticated:
+
+            raise RuntimeError(
+                "Kraken account is not authenticated"
+            )
+
         balance = self.exchange.fetch_balance()
+
+        self.last_balance = balance
+
+        return balance
+
+    def free_quote(
+        self,
+        currency="USD",
+    ):
+
+        balance = self.fetch_balance()
 
         free = (
             balance
@@ -268,15 +388,168 @@ class KrakenTrader:
 
         return float(free)
 
-    # --------------------------------------------------
+    def total_quote(
+        self,
+        currency="USD",
+    ):
+
+        balance = self.fetch_balance()
+
+        total = (
+            balance
+            .get("total", {})
+            .get(currency)
+        )
+
+        if total is None:
+            return 0.0
+
+        return float(total)
+
+    def account_summary(
+        self,
+        currency="USD",
+    ):
+
+        if not self.authenticated:
+
+            return {
+                "authenticated": False,
+                "currency": currency,
+                "free": 0.0,
+                "used": 0.0,
+                "total": 0.0,
+                "error":
+                    "Kraken account is not authenticated",
+            }
+
+        try:
+
+            balance = self.fetch_balance()
+
+            free = float(
+                balance
+                .get("free", {})
+                .get(currency)
+                or 0
+            )
+
+            used = float(
+                balance
+                .get("used", {})
+                .get(currency)
+                or 0
+            )
+
+            total = float(
+                balance
+                .get("total", {})
+                .get(currency)
+                or 0
+            )
+
+            return {
+                "authenticated": True,
+                "currency": currency,
+                "free": free,
+                "used": used,
+                "total": total,
+                "error": None,
+            }
+
+        except Exception as e:
+
+            return {
+                "authenticated":
+                    self.authenticated,
+
+                "currency":
+                    currency,
+
+                "free": 0.0,
+                "used": 0.0,
+                "total": 0.0,
+
+                "error":
+                    f"{type(e).__name__}: {e}",
+            }
+
+    # ======================================================
+    # MARKET PRECISION
+    # ======================================================
+
+    def _normalize_amount(
+        self,
+        symbol,
+        amount,
+    ):
+
+        try:
+
+            normalized = self.exchange.amount_to_precision(
+                symbol,
+                amount,
+            )
+
+            return float(normalized)
+
+        except Exception:
+
+            return float(amount)
+
+    def _market_limits(
+        self,
+        symbol,
+    ):
+
+        market = self.exchange.market(symbol)
+
+        limits = market.get(
+            "limits",
+            {},
+        )
+
+        amount_limits = limits.get(
+            "amount",
+            {},
+        )
+
+        cost_limits = limits.get(
+            "cost",
+            {},
+        )
+
+        return {
+            "min_amount":
+                amount_limits.get("min"),
+
+            "max_amount":
+                amount_limits.get("max"),
+
+            "min_cost":
+                cost_limits.get("min"),
+
+            "max_cost":
+                cost_limits.get("max"),
+        }
+
+    # ======================================================
     # MARKET BUY
-    # --------------------------------------------------
+    # ======================================================
 
     def market_buy(
         self,
         symbol,
-        quote_amount
+        quote_amount,
     ):
+
+        quote_amount = float(quote_amount)
+
+        if quote_amount <= 0:
+
+            raise ValueError(
+                "quote_amount must be greater than zero"
+            )
 
         ticker = self.exchange.fetch_ticker(
             symbol
@@ -294,19 +567,87 @@ class KrakenTrader:
                 f"Unable to determine {symbol} market price"
             )
 
-        amount = (
-            quote_amount / ask
+        amount = quote_amount / ask
+
+        amount = self._normalize_amount(
+            symbol,
+            amount,
         )
 
+        if amount <= 0:
+
+            raise RuntimeError(
+                f"Calculated order amount for {symbol} is zero"
+            )
+
+        limits = self._market_limits(symbol)
+
+        min_amount = limits.get("min_amount")
+        max_amount = limits.get("max_amount")
+        min_cost = limits.get("min_cost")
+        max_cost = limits.get("max_cost")
+
+        if (
+            min_amount is not None
+            and amount < float(min_amount)
+        ):
+
+            raise RuntimeError(
+                f"{symbol} order amount {amount} "
+                f"is below Kraken minimum "
+                f"{min_amount}"
+            )
+
+        if (
+            max_amount is not None
+            and amount > float(max_amount)
+        ):
+
+            raise RuntimeError(
+                f"{symbol} order amount {amount} "
+                f"exceeds Kraken maximum "
+                f"{max_amount}"
+            )
+
+        estimated_cost = amount * ask
+
+        if (
+            min_cost is not None
+            and estimated_cost < float(min_cost)
+        ):
+
+            raise RuntimeError(
+                f"{symbol} order value ${estimated_cost:.2f} "
+                f"is below Kraken minimum "
+                f"${float(min_cost):.2f}"
+            )
+
+        if (
+            max_cost is not None
+            and estimated_cost > float(max_cost)
+        ):
+
+            raise RuntimeError(
+                f"{symbol} order value ${estimated_cost:.2f} "
+                f"exceeds Kraken maximum "
+                f"${float(max_cost):.2f}"
+            )
+
+        # ==================================================
         # PAPER MODE
-        #
-        # Absolutely no private order is sent.
+        # ==================================================
 
         if not self.live_orders_enabled:
 
-            return {
+            result = {
                 "order_id":
                     f"PAPER-BUY-{symbol}",
+
+                "symbol":
+                    symbol,
+
+                "side":
+                    "buy",
 
                 "price":
                     ask,
@@ -314,20 +655,46 @@ class KrakenTrader:
                 "amount":
                     amount,
 
+                "quote_amount":
+                    quote_amount,
+
+                "filled":
+                    amount,
+
+                "paper":
+                    True,
+
                 "raw": {
                     "paper": True,
-                    "symbol": symbol,
+                    "symbol":
+                        symbol,
                     "quote_amount":
                         quote_amount,
                 },
             }
 
-        # LIVE MODE ONLY
+            self.last_order = result
+
+            return result
+
+        # ==================================================
+        # LIVE MODE
+        # ==================================================
 
         if not self.authenticated:
 
             raise RuntimeError(
                 "Kraken account is not authenticated"
+            )
+
+        available = self.free_quote("USD")
+
+        if quote_amount > available:
+
+            raise RuntimeError(
+                f"Insufficient Kraken USD balance. "
+                f"Requested ${quote_amount:.2f}, "
+                f"available ${available:.2f}"
             )
 
         order = (
@@ -349,29 +716,56 @@ class KrakenTrader:
             or amount
         )
 
-        return {
+        result = {
             "order_id":
                 order.get("id"),
+
+            "symbol":
+                symbol,
+
+            "side":
+                "buy",
 
             "price":
                 price,
 
             "amount":
+                amount,
+
+            "filled":
                 filled,
+
+            "quote_amount":
+                quote_amount,
+
+            "paper":
+                False,
 
             "raw":
                 order,
         }
 
-    # --------------------------------------------------
+        self.last_order = result
+
+        return result
+
+    # ======================================================
     # MARKET SELL
-    # --------------------------------------------------
+    # ======================================================
 
     def market_sell(
         self,
         symbol,
-        amount
+        amount,
     ):
+
+        amount = float(amount)
+
+        if amount <= 0:
+
+            raise ValueError(
+                "amount must be greater than zero"
+            )
 
         ticker = self.exchange.fetch_ticker(
             symbol
@@ -389,13 +783,59 @@ class KrakenTrader:
                 f"Unable to determine {symbol} market price"
             )
 
+        amount = self._normalize_amount(
+            symbol,
+            amount,
+        )
+
+        if amount <= 0:
+
+            raise RuntimeError(
+                f"Calculated sell amount for {symbol} is zero"
+            )
+
+        limits = self._market_limits(symbol)
+
+        min_amount = limits.get("min_amount")
+        max_amount = limits.get("max_amount")
+
+        if (
+            min_amount is not None
+            and amount < float(min_amount)
+        ):
+
+            raise RuntimeError(
+                f"{symbol} sell amount {amount} "
+                f"is below Kraken minimum "
+                f"{min_amount}"
+            )
+
+        if (
+            max_amount is not None
+            and amount > float(max_amount)
+        ):
+
+            raise RuntimeError(
+                f"{symbol} sell amount {amount} "
+                f"exceeds Kraken maximum "
+                f"{max_amount}"
+            )
+
+        # ==================================================
         # PAPER MODE
+        # ==================================================
 
         if not self.live_orders_enabled:
 
-            return {
+            result = {
                 "order_id":
                     f"PAPER-SELL-{symbol}",
+
+                "symbol":
+                    symbol,
+
+                "side":
+                    "sell",
 
                 "price":
                     bid,
@@ -403,13 +843,26 @@ class KrakenTrader:
                 "amount":
                     amount,
 
+                "filled":
+                    amount,
+
+                "paper":
+                    True,
+
                 "raw": {
                     "paper": True,
-                    "symbol": symbol,
+                    "symbol":
+                        symbol,
                 },
             }
 
-        # LIVE MODE ONLY
+            self.last_order = result
+
+            return result
+
+        # ==================================================
+        # LIVE MODE
+        # ==================================================
 
         if not self.authenticated:
 
@@ -436,16 +889,32 @@ class KrakenTrader:
             or amount
         )
 
-        return {
+        result = {
             "order_id":
                 order.get("id"),
+
+            "symbol":
+                symbol,
+
+            "side":
+                "sell",
 
             "price":
                 price,
 
             "amount":
+                amount,
+
+            "filled":
                 filled,
+
+            "paper":
+                False,
 
             "raw":
                 order,
         }
+
+        self.last_order = result
+
+        return result
