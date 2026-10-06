@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import threading
 
 import pandas as pd
 
@@ -34,12 +35,8 @@ class KrakenBot:
 
     def __init__(self):
 
-        self.kraken = KrakenTrader(
-            settings
-        )
+        self.kraken = KrakenTrader(settings)
 
-        # IMPORTANT:
-        # Full Kraken market scanner.
         self.scanner = KrakenMarketScanner(
             self.kraken,
             settings,
@@ -59,14 +56,50 @@ class KrakenBot:
 
         self.cooldown_until = 0
 
-        if get_risk(
-            "paper_balance"
-        ) is None:
+        # -----------------------------------------------------
+        # SCAN CONTROL
+        # -----------------------------------------------------
+
+        self.scan_requested = False
+
+        self.scan_in_progress = False
+
+        self.last_scan_error = None
+
+        self.scan_lock = threading.Lock()
+
+        # -----------------------------------------------------
+        # PAPER ACCOUNT
+        # -----------------------------------------------------
+
+        if get_risk("paper_balance") is None:
 
             set_risk(
                 "paper_balance",
                 settings.paper_start_balance,
             )
+
+    # =========================================================
+    # REQUEST MANUAL SCAN
+    # =========================================================
+
+    def request_scan(self):
+
+        with self.scan_lock:
+
+            if self.scan_in_progress:
+
+                return {
+                    "accepted": False,
+                    "already_scanning": True,
+                }
+
+            self.scan_requested = True
+
+            return {
+                "accepted": True,
+                "already_scanning": False,
+            }
 
     # =========================================================
     # DATAFRAME
@@ -98,8 +131,7 @@ class KrakenBot:
             (
                 position
                 for position in get_positions()
-                if position["symbol"]
-                == symbol
+                if position["symbol"] == symbol
             ),
             None,
         )
@@ -142,10 +174,7 @@ class KrakenBot:
                 "loss circuit breaker active",
             )
 
-        if (
-            time.time()
-            < self.cooldown_until
-        ):
+        if time.time() < self.cooldown_until:
 
             return (
                 False,
@@ -165,10 +194,7 @@ class KrakenBot:
 
         symbol = (
             candidate.symbol
-            if hasattr(
-                candidate,
-                "symbol",
-            )
+            if hasattr(candidate, "symbol")
             else str(candidate)
         )
 
@@ -189,9 +215,7 @@ class KrakenBot:
 
         now = time.time()
 
-        state = self.models.get(
-            symbol
-        )
+        state = self.models.get(symbol)
 
         # -----------------------------------------------------
         # TRAIN MODEL
@@ -202,19 +226,14 @@ class KrakenBot:
             or
             now
             -
-            self.last_train.get(
-                symbol,
-                0,
-            )
+            self.last_train.get(symbol, 0)
             >= settings.train_every_seconds
         ):
 
             cost = (
-                settings.round_trip_cost_pct
-                / 100
+                settings.round_trip_cost_pct / 100
                 +
-                settings.slippage_buffer_pct
-                / 100
+                settings.slippage_buffer_pct / 100
             )
 
             state = await asyncio.to_thread(
@@ -270,11 +289,7 @@ class KrakenBot:
             or 0
         )
 
-        if min(
-            bid,
-            ask,
-            last,
-        ) <= 0:
+        if min(bid, ask, last) <= 0:
 
             return None
 
@@ -284,11 +299,9 @@ class KrakenBot:
         )
 
         base_cost = (
-            settings.round_trip_cost_pct
-            / 100
+            settings.round_trip_cost_pct / 100
             +
-            settings.slippage_buffer_pct
-            / 100
+            settings.slippage_buffer_pct / 100
         )
 
         total_cost = (
@@ -297,46 +310,33 @@ class KrakenBot:
         )
 
         probability = float(
-            prediction[
-                "probability_up"
-            ]
+            prediction["probability_up"]
         )
 
         expected_move = float(
-            prediction[
-                "expected_move"
-            ]
+            prediction["expected_move"]
         )
 
         strategy_score = float(
-            prediction[
-                "strategy_score"
-            ]
+            prediction["strategy_score"]
         )
 
         agreement = float(
-            prediction[
-                "strategy_agreement"
-            ]
+            prediction["strategy_agreement"]
         )
 
         confidence = float(
-            prediction[
-                "confidence"
-            ]
+            prediction["confidence"]
         )
 
-        direction = prediction[
-            "direction"
-        ]
+        direction = prediction["direction"]
 
         # -----------------------------------------------------
         # EDGE
         # -----------------------------------------------------
 
         ml_edge = (
-            probability
-            - 0.5
+            probability - 0.5
         ) * 2
 
         combined_edge = (
@@ -353,15 +353,9 @@ class KrakenBot:
         score = (
             combined_edge
             *
-            max(
-                agreement,
-                0.25,
-            )
+            max(agreement, 0.25)
             *
-            max(
-                expected_move,
-                0,
-            )
+            max(expected_move, 0)
             -
             total_cost
         )
@@ -378,21 +372,16 @@ class KrakenBot:
                 f"direction={direction}"
             )
 
-        if (
-            probability
-            < settings.min_probability
-        ):
+        if probability < settings.min_probability:
 
             reasons.append(
-                f"probability="
-                f"{probability:.3f}"
+                f"probability={probability:.3f}"
             )
 
         if confidence < 0.10:
 
             reasons.append(
-                f"confidence="
-                f"{confidence:.3f}"
+                f"confidence={confidence:.3f}"
             )
 
         if expected_move <= 0:
@@ -404,22 +393,19 @@ class KrakenBot:
         if expected_move <= total_cost:
 
             reasons.append(
-                "expected move below "
-                "trading cost"
+                "expected move below trading cost"
             )
 
         if strategy_score < -0.10:
 
             reasons.append(
-                f"strategy bearish="
-                f"{strategy_score:.3f}"
+                f"strategy bearish={strategy_score:.3f}"
             )
 
         if agreement < 0.35:
 
             reasons.append(
-                f"low strategy agreement="
-                f"{agreement:.3f}"
+                f"low strategy agreement={agreement:.3f}"
             )
 
         tradeable = (
@@ -429,79 +415,57 @@ class KrakenBot:
 
         return {
 
-            "symbol":
-                symbol,
+            "symbol": symbol,
 
-            "price":
-                last,
+            "price": last,
 
-            "bid":
-                bid,
+            "last": last,
 
-            "ask":
-                ask,
+            "bid": bid,
 
-            "spread":
-                spread,
+            "ask": ask,
 
-            "cost_estimate":
-                total_cost,
+            "spread": spread,
 
-            "probability_up":
-                probability,
+            "cost_estimate": total_cost,
 
-            "expected_move":
-                expected_move,
+            "probability_up": probability,
 
-            "direction":
-                direction,
+            "probability": probability,
 
-            "confidence":
-                confidence,
+            "expected_move": expected_move,
 
-            "strategy_score":
-                strategy_score,
+            "direction": direction,
 
-            "strategy_agreement":
-                agreement,
+            "confidence": confidence,
 
-            "combined_edge":
-                combined_edge,
+            "strategy_score": strategy_score,
 
-            "estimated_profit":
-                estimated_profit,
+            "strategy_agreement": agreement,
 
-            "score":
-                score,
+            "combined_edge": combined_edge,
 
-            "tradeable":
-                tradeable,
+            "estimated_profit": estimated_profit,
 
-            "reasons":
-                reasons,
+            "score": score,
 
-            "accuracy":
-                float(
-                    state.accuracy
-                ),
+            "tradeable": tradeable,
 
-            "samples":
-                int(
-                    state.samples
-                ),
+            "reasons": reasons,
 
-            "regime":
-                prediction[
-                    "regime"
-                ],
+            "accuracy": float(
+                state.accuracy
+            ),
 
-            "strategies":
-                prediction[
-                    "strategies"
-                ],
+            "samples": int(
+                state.samples
+            ),
 
-            "trained_at":
-                state.trained_at,
+            "regime": prediction["regime"],
+
+            "strategies": prediction["strategies"],
+
+            "trained_at": state.trained_at,
         }
 
     # =========================================================
@@ -510,77 +474,112 @@ class KrakenBot:
 
     async def scan(self):
 
-        # IMPORTANT:
-        # Get the best liquid Kraken markets first.
-        candidates = await asyncio.to_thread(
-            self.scanner.top_symbols
-        )
+        with self.scan_lock:
 
-        print(
-            f"ML SCAN: "
-            f"{len(candidates)} markets"
-        )
-
-        results = []
-
-        for candidate in candidates:
-
-            try:
-
-                result = (
-                    await self.scan_symbol(
-                        candidate
-                    )
-                )
-
-                if result:
-
-                    results.append(
-                        result
-                    )
-
-            except Exception as exc:
+            if self.scan_in_progress:
 
                 print(
-                    "SCAN ERROR",
-                    getattr(
-                        candidate,
-                        "symbol",
-                        candidate,
-                    ),
-                    type(exc).__name__,
-                    exc,
+                    "ML SCAN: already in progress"
                 )
 
-        results.sort(
-            key=lambda x: x["score"],
-            reverse=True,
-        )
+                return self.signals
 
-        self.signals = results
+            self.scan_in_progress = True
 
-        self.last_scan = time.time()
+            self.last_scan_error = None
 
-        print(
-            f"AI RESULTS: "
-            f"{len(results)}"
-        )
+            self.scan_requested = False
 
-        for signal in results[:10]:
+        try:
 
-            print(
-                f"AI "
-                f"{signal['symbol']} "
-                f"{signal['direction']} "
-                f"prob="
-                f"{signal['probability_up']:.3f} "
-                f"score="
-                f"{signal['score']:.5f} "
-                f"tradeable="
-                f"{signal['tradeable']}"
+            candidates = await asyncio.to_thread(
+                self.scanner.top_symbols
             )
 
-        return results
+            print(
+                f"ML SCAN: "
+                f"{len(candidates)} markets"
+            )
+
+            results = []
+
+            for candidate in candidates:
+
+                try:
+
+                    result = await self.scan_symbol(
+                        candidate
+                    )
+
+                    if result:
+
+                        results.append(result)
+
+                except Exception as exc:
+
+                    print(
+                        "SCAN ERROR",
+                        getattr(
+                            candidate,
+                            "symbol",
+                            candidate,
+                        ),
+                        type(exc).__name__,
+                        exc,
+                    )
+
+            results.sort(
+                key=lambda x: x["score"],
+                reverse=True,
+            )
+
+            self.signals = results
+
+            self.last_scan = time.time()
+
+            print(
+                f"AI RESULTS: "
+                f"{len(results)}"
+            )
+
+            for signal in results[:10]:
+
+                print(
+                    f"AI "
+                    f"{signal['symbol']} "
+                    f"{signal['direction']} "
+                    f"prob="
+                    f"{signal['probability_up']:.3f} "
+                    f"score="
+                    f"{signal['score']:.5f} "
+                    f"tradeable="
+                    f"{signal['tradeable']}"
+                )
+
+            return results
+
+        except Exception as exc:
+
+            self.last_scan_error = (
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            self.error = (
+                "SCAN ERROR: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            print(
+                self.error
+            )
+
+            return self.signals
+
+        finally:
+
+            with self.scan_lock:
+
+                self.scan_in_progress = False
 
     # =========================================================
     # POSITION MANAGEMENT
@@ -609,35 +608,20 @@ class KrakenBot:
                 age = (
                     time.time()
                     -
-                    position[
-                        "opened_ts"
-                    ]
+                    position["opened_ts"]
                 ) / 60
 
                 reason = None
 
-                if (
-                    price
-                    <= position[
-                        "stop_price"
-                    ]
-                ):
+                if price <= position["stop_price"]:
 
                     reason = "stop_loss"
 
-                elif (
-                    price
-                    >= position[
-                        "target_price"
-                    ]
-                ):
+                elif price >= position["target_price"]:
 
                     reason = "take_profit"
 
-                elif (
-                    age
-                    >= settings.max_hold_minutes
-                ):
+                elif age >= settings.max_hold_minutes:
 
                     reason = "time_exit"
 
@@ -658,9 +642,7 @@ class KrakenBot:
                 pnl = (
                     exit_price
                     -
-                    position[
-                        "entry_price"
-                    ]
+                    position["entry_price"]
                 ) * position["amount"]
 
                 add_trade({
@@ -726,9 +708,7 @@ class KrakenBot:
                         "paper_balance",
                         balance
                         +
-                        position[
-                            "notional"
-                        ]
+                        position["notional"]
                         +
                         pnl,
                     )
@@ -739,9 +719,7 @@ class KrakenBot:
                             0,
                             invested
                             -
-                            position[
-                                "notional"
-                            ],
+                            position["notional"],
                         ),
                     )
 
@@ -789,9 +767,7 @@ class KrakenBot:
         if not self.signals:
             return
 
-        allowed, reason = (
-            self._can_trade()
-        )
+        allowed, reason = self._can_trade()
 
         if not allowed:
 
@@ -806,20 +782,12 @@ class KrakenBot:
 
             signal
 
-            for signal
-            in self.signals
+            for signal in self.signals
 
-            if signal.get(
-                "tradeable"
-            )
+            if signal.get("tradeable")
 
-            and signal.get(
-                "accuracy",
-                0,
-            )
-            >=
-            settings.min_training_accuracy
-
+            and signal.get("accuracy", 0)
+            >= settings.min_training_accuracy
         ]
 
         if not candidates:
@@ -884,7 +852,6 @@ class KrakenBot:
                 return
 
         if quote < 5:
-
             return
 
         # -----------------------------------------------------
@@ -919,8 +886,7 @@ class KrakenBot:
             entry
             *
             (
-                1
-                -
+                1 -
                 settings.stop_loss_pct
             )
         )
@@ -929,8 +895,7 @@ class KrakenBot:
             entry
             *
             (
-                1
-                +
+                1 +
                 settings.take_profit_pct
             )
         )
@@ -1058,22 +1023,16 @@ class KrakenBot:
                 ] = float(
                     ticker.get("bid")
                     or ticker.get("last")
-                    or position[
-                        "entry_price"
-                    ]
+                    or position["entry_price"]
                 )
 
             except Exception:
 
                 prices[
                     position["symbol"]
-                ] = position[
-                    "entry_price"
-                ]
+                ] = position["entry_price"]
 
-        record_equity_snapshot(
-            prices
-        )
+        record_equity_snapshot(prices)
 
     # =========================================================
     # AUTONOMOUS LOOP
@@ -1081,21 +1040,10 @@ class KrakenBot:
 
     async def run(self):
 
-        print(
-            "=" * 60
-        )
-
-        print(
-            "AUTONOMOUS LOOP ONLINE"
-        )
-
-        print(
-            "FULL MARKET SCANNER ONLINE"
-        )
-
-        print(
-            "=" * 60
-        )
+        print("=" * 60)
+        print("AUTONOMOUS LOOP ONLINE")
+        print("FULL MARKET SCANNER ONLINE")
+        print("=" * 60)
 
         while self.running:
 
@@ -1103,7 +1051,25 @@ class KrakenBot:
 
                 await self.manage_positions()
 
-                await self.scan()
+                # -------------------------------------------------
+                # MANUAL SCAN REQUEST
+                # -------------------------------------------------
+
+                if self.scan_requested:
+
+                    print(
+                        "MANUAL SCAN REQUEST ACCEPTED"
+                    )
+
+                    await self.scan()
+
+                else:
+
+                    # -------------------------------------------------
+                    # NORMAL AUTONOMOUS SCAN
+                    # -------------------------------------------------
+
+                    await self.scan()
 
                 await self.maybe_enter_best()
 
