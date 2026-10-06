@@ -9,7 +9,6 @@ import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from bot import KrakenBot
 from config import settings
@@ -22,7 +21,7 @@ import db
 
 app = FastAPI(
     title="Kraken Day Trader",
-    version="1.0.0",
+    version="1.0.1",
 )
 
 app.add_middleware(
@@ -38,18 +37,63 @@ app.add_middleware(
 # DATABASE
 # ============================================================
 
-db.init_db()
+try:
+    db.init_db()
+except Exception as exc:
+    print("Initial database setup warning:", exc)
 
 
 # ============================================================
-# BOT
+# BOT STATE
 # ============================================================
 
-bot = KrakenBot()
-
-_worker_thread = None
-_worker_error = None
+_bot_lock = threading.RLock()
 _worker_lock = threading.Lock()
+
+bot: KrakenBot | None = None
+
+_worker_thread: threading.Thread | None = None
+_worker_error: str | None = None
+_worker_started_at: float | None = None
+_worker_finished_at: float | None = None
+
+
+# ============================================================
+# BOT CREATION
+# ============================================================
+
+def create_bot() -> KrakenBot:
+    """
+    Always create a fresh bot instance.
+
+    This is important because a previous bot instance may have
+    an internal stop event or failed state that prevents a
+    subsequent Start command from working.
+    """
+
+    new_bot = KrakenBot()
+
+    try:
+        new_bot.kraken.set_mode("PAPER")
+    except Exception as exc:
+        print("Unable to initialize bot in PAPER mode:", exc)
+
+    return new_bot
+
+
+def get_bot() -> KrakenBot:
+    global bot
+
+    with _bot_lock:
+
+        if bot is None:
+            bot = create_bot()
+
+        return bot
+
+
+# Create initial instance.
+bot = create_bot()
 
 
 # ============================================================
@@ -58,35 +102,40 @@ _worker_lock = threading.Lock()
 
 def current_mode():
     try:
-        return bot.kraken.mode
+        return get_bot().kraken.mode
     except Exception:
         return "PAPER"
 
 
 def paper_balance():
-    """
-    Read the current paper account balance.
 
-    Falls back safely if the database implementation does not
-    expose the expected helper.
-    """
+    current_bot = get_bot()
 
     try:
+
         if hasattr(db, "paper_balance"):
+
             data = db.paper_balance()
 
             return {
-                "equity": float(data.get("equity", 0)),
-                "cash": float(data.get("cash", 0)),
+                "equity": float(
+                    data.get("equity", 0)
+                ),
+
+                "cash": float(
+                    data.get("cash", 0)
+                ),
             }
 
     except Exception:
         pass
 
     try:
+
         history = db.equity_history(1)
 
         if history:
+
             last = history[-1]
 
             equity = float(
@@ -103,26 +152,24 @@ def paper_balance():
     except Exception:
         pass
 
+    starting_balance = float(
+        getattr(
+            settings,
+            "paper_start_balance",
+            1000,
+        )
+    )
+
     return {
-        "equity": float(
-            getattr(
-                settings,
-                "paper_start_balance",
-                1000,
-            )
-        ),
-        "cash": float(
-            getattr(
-                settings,
-                "paper_start_balance",
-                1000,
-            )
-        ),
+        "equity": starting_balance,
+        "cash": starting_balance,
     }
 
 
 def safe_float(value, default=0.0):
+
     try:
+
         result = float(value)
 
         if math.isfinite(result):
@@ -134,52 +181,262 @@ def safe_float(value, default=0.0):
     return float(default)
 
 
+def worker_alive():
+
+    thread = _worker_thread
+
+    return bool(
+        thread is not None
+        and thread.is_alive()
+    )
+
+
 # ============================================================
-# BOT WORKER
+# WORKER
 # ============================================================
+
+def _run_bot_worker(worker_bot: KrakenBot):
+
+    global _worker_error
+    global _worker_finished_at
+
+    try:
+
+        print(
+            "=================================================="
+        )
+        print("KRAKEN BOT WORKER STARTING")
+        print(
+            "Mode:",
+            worker_bot.kraken.mode,
+        )
+        print(
+            "Authenticated:",
+            worker_bot.kraken.authenticated,
+        )
+        print(
+            "Live orders:",
+            worker_bot.kraken.live_orders_enabled,
+        )
+        print(
+            "=================================================="
+        )
+
+        asyncio.run(
+            worker_bot.run()
+        )
+
+        # If run() returns normally, record it.
+        # This is useful because a trading worker normally
+        # should remain alive until explicitly stopped.
+
+        _worker_error = (
+            "Bot worker exited normally. "
+            "bot.run() returned."
+        )
+
+        print(
+            "WARNING: bot.run() returned and the worker stopped."
+        )
+
+    except Exception as exc:
+
+        _worker_error = (
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        print(
+            "=================================================="
+        )
+        print("KRAKEN BOT WORKER CRASHED")
+        print(
+            f"{type(exc).__name__}: {exc}"
+        )
+        print(
+            "=================================================="
+        )
+
+        traceback.print_exc()
+
+    finally:
+
+        _worker_finished_at = time.time()
+
+        print(
+            "Kraken bot worker finished."
+        )
+
 
 def start_bot_thread():
+
+    global bot
     global _worker_thread
     global _worker_error
+    global _worker_started_at
+    global _worker_finished_at
 
     with _worker_lock:
+
+        # ----------------------------------------------------
+        # Already running
+        # ----------------------------------------------------
+
         if (
             _worker_thread is not None
             and _worker_thread.is_alive()
         ):
-            return False
 
-        _worker_error = None
+            return {
+                "started": False,
+                "running": True,
+                "message": "Bot is already running.",
+            }
 
-        def runner():
-            global _worker_error
+        # ----------------------------------------------------
+        # Create a completely fresh bot instance.
+        # ----------------------------------------------------
+
+        with _bot_lock:
+
+            old_bot = bot
+
+            # Preserve the current requested mode.
+            try:
+                previous_mode = old_bot.kraken.mode
+            except Exception:
+                previous_mode = "PAPER"
+
+            bot = create_bot()
+
+            new_bot = bot
+
+        # ----------------------------------------------------
+        # Authenticate the fresh bot.
+        # ----------------------------------------------------
+
+        try:
+
+            authentication = (
+                new_bot.kraken.test_authentication()
+            )
+
+            print(
+                "Start authentication:",
+                authentication,
+            )
+
+        except Exception as exc:
+
+            _worker_error = (
+                f"{type(exc).__name__}: "
+                f"Authentication failed: {exc}"
+            )
+
+            return {
+                "started": False,
+                "running": False,
+                "error": _worker_error,
+            }
+
+        # ----------------------------------------------------
+        # Restore LIVE mode only when it was already enabled.
+        # ----------------------------------------------------
+
+        if previous_mode == "LIVE":
 
             try:
-                asyncio.run(bot.run())
 
-            except Exception as exc:
-                _worker_error = (
-                    f"{type(exc).__name__}: {exc}"
+                new_bot.kraken.set_mode("LIVE")
+
+                print(
+                    "Restored LIVE trading mode."
                 )
 
-                traceback.print_exc()
+            except Exception as exc:
 
-        _worker_thread = threading.Thread(
-            target=runner,
+                print(
+                    "Could not restore LIVE mode:",
+                    exc,
+                )
+
+                # Safety first: remain PAPER.
+                try:
+                    new_bot.kraken.set_mode(
+                        "PAPER"
+                    )
+                except Exception:
+                    pass
+
+        else:
+
+            try:
+                new_bot.kraken.set_mode(
+                    "PAPER"
+                )
+            except Exception:
+                pass
+
+        # ----------------------------------------------------
+        # Clear previous worker state.
+        # ----------------------------------------------------
+
+        _worker_error = None
+        _worker_finished_at = None
+        _worker_started_at = time.time()
+
+        # ----------------------------------------------------
+        # Create worker.
+        # ----------------------------------------------------
+
+        thread = threading.Thread(
+            target=_run_bot_worker,
+            args=(new_bot,),
             name="kraken-bot-worker",
             daemon=True,
         )
 
-        _worker_thread.start()
+        _worker_thread = thread
 
-        return True
+        thread.start()
 
+    # --------------------------------------------------------
+    # Give the thread a short opportunity to start.
+    # This catches immediate crashes instead of reporting
+    # "started" when it actually died instantly.
+    # --------------------------------------------------------
 
-def worker_alive():
-    return bool(
-        _worker_thread is not None
-        and _worker_thread.is_alive()
-    )
+    deadline = time.time() + 1.5
+
+    while time.time() < deadline:
+
+        if worker_alive():
+
+            return {
+                "started": True,
+                "running": True,
+                "message": "Bot started.",
+            }
+
+        if _worker_error:
+
+            return {
+                "started": False,
+                "running": False,
+                "error": _worker_error,
+            }
+
+        time.sleep(0.05)
+
+    return {
+        "started": worker_alive(),
+        "running": worker_alive(),
+        "message": (
+            "Bot started."
+            if worker_alive()
+            else "Bot worker stopped immediately."
+        ),
+        "worker_error": _worker_error,
+    }
 
 
 # ============================================================
@@ -189,36 +446,75 @@ def worker_alive():
 @app.on_event("startup")
 async def startup_event():
 
+    global bot
+
+    print(
+        "=================================================="
+    )
+    print("KRAKEN BOT STARTUP")
+    print(
+        "=================================================="
+    )
+
     # --------------------------------------------------------
-    # ALWAYS START IN PAPER MODE
+    # Database
     # --------------------------------------------------------
 
     try:
-        bot.kraken.set_mode("PAPER")
-    except Exception as exc:
+
+        db.init_db()
+
         print(
-            "Unable to force PAPER mode at startup:",
-            exc,
+            "Database: READY"
         )
 
-    # --------------------------------------------------------
-    # DATABASE
-    # --------------------------------------------------------
-
-    try:
-        db.init_db()
     except Exception as exc:
+
         print(
             "Database initialization warning:",
             exc,
         )
 
     # --------------------------------------------------------
-    # KRAKEN CONNECTION
+    # Fresh bot
+    # --------------------------------------------------------
+
+    with _bot_lock:
+
+        bot = create_bot()
+
+        current_bot = bot
+
+    # --------------------------------------------------------
+    # Force PAPER after deployment/restart.
     # --------------------------------------------------------
 
     try:
-        connection = bot.kraken.test_connection()
+
+        current_bot.kraken.set_mode(
+            "PAPER"
+        )
+
+        print(
+            "Trading mode: PAPER"
+        )
+
+    except Exception as exc:
+
+        print(
+            "Unable to force PAPER mode:",
+            exc,
+        )
+
+    # --------------------------------------------------------
+    # Kraken connection
+    # --------------------------------------------------------
+
+    try:
+
+        connection = (
+            current_bot.kraken.test_connection()
+        )
 
         print(
             "Kraken connection:",
@@ -226,18 +522,20 @@ async def startup_event():
         )
 
     except Exception as exc:
+
         print(
             "Kraken connection test failed:",
             exc,
         )
 
     # --------------------------------------------------------
-    # KRAKEN AUTHENTICATION
+    # Kraken authentication
     # --------------------------------------------------------
 
     try:
+
         authentication = (
-            bot.kraken.test_authentication()
+            current_bot.kraken.test_authentication()
         )
 
         print(
@@ -246,34 +544,55 @@ async def startup_event():
         )
 
     except Exception as exc:
+
         print(
             "Kraken authentication test failed:",
             exc,
         )
 
     # --------------------------------------------------------
-    # AUTONOMOUS BOT
+    # Autonomous mode
     # --------------------------------------------------------
 
     if (
-        getattr(settings, "autonomous", False)
-        and bot.kraken.authenticated
+        getattr(
+            settings,
+            "autonomous",
+            False,
+        )
+        and current_bot.kraken.authenticated
     ):
-        started = start_bot_thread()
+
+        result = start_bot_thread()
 
         print(
             "Autonomous bot startup:",
-            "STARTED" if started else "ALREADY RUNNING",
+            result,
         )
 
     else:
+
         print(
-            "Autonomous bot startup skipped.",
-            "autonomous=",
-            getattr(settings, "autonomous", False),
-            "authenticated=",
-            bot.kraken.authenticated,
+            "Autonomous bot startup skipped."
         )
+
+        print(
+            "autonomous=",
+            getattr(
+                settings,
+                "autonomous",
+                False,
+            ),
+        )
+
+        print(
+            "authenticated=",
+            current_bot.kraken.authenticated,
+        )
+
+    print(
+        "=================================================="
+    )
 
 
 # ============================================================
@@ -285,13 +604,16 @@ async def global_exception_handler(
     request: Request,
     exc: Exception,
 ):
+
     traceback.print_exc()
 
     return JSONResponse(
         status_code=200,
         content={
             "ok": False,
-            "error": f"{type(exc).__name__}: {exc}",
+            "error": (
+                f"{type(exc).__name__}: {exc}"
+            ),
         },
     )
 
@@ -303,25 +625,27 @@ async def global_exception_handler(
 @app.get("/api/status")
 async def api_status():
 
+    current_bot = get_bot()
+
     mode = current_mode()
 
     try:
-        scanner = bot.scanner_status()
+        scanner = current_bot.scanner_status()
     except Exception:
         scanner = {}
 
     try:
-        stats = bot.stats()
+        stats = current_bot.stats()
     except Exception:
         stats = {}
 
     try:
-        signals = bot.get_signals()
+        signals = current_bot.get_signals()
     except Exception:
         signals = []
 
     try:
-        positions = bot.get_positions()
+        positions = current_bot.get_positions()
     except Exception:
         positions = []
 
@@ -329,6 +653,8 @@ async def api_status():
         equity_history = db.equity_history(500)
     except Exception:
         equity_history = []
+
+    paper = paper_balance()
 
     return {
         "ok": True,
@@ -339,6 +665,10 @@ async def api_status():
 
         "worker_error": _worker_error,
 
+        "worker_started_at": _worker_started_at,
+
+        "worker_finished_at": _worker_finished_at,
+
         "mode": mode,
 
         "paper": mode == "PAPER",
@@ -346,11 +676,15 @@ async def api_status():
         "live": mode == "LIVE",
 
         "live_orders_enabled": bool(
-            bot.kraken.live_orders_enabled
+            current_bot.kraken.live_orders_enabled
         ),
 
         "autonomous": bool(
-            getattr(settings, "autonomous", False)
+            getattr(
+                settings,
+                "autonomous",
+                False,
+            )
         ),
 
         "bot": {
@@ -359,19 +693,23 @@ async def api_status():
             "paper": mode == "PAPER",
             "live": mode == "LIVE",
             "live_orders_enabled": bool(
-                bot.kraken.live_orders_enabled
+                current_bot.kraken.live_orders_enabled
             ),
         },
 
-        "kraken": bot.kraken.connection_status(),
+        "kraken": (
+            current_bot.kraken.connection_status()
+        ),
 
         "account": {
             "paper_equity": safe_float(
-                paper_balance()["equity"]
+                paper["equity"]
             ),
+
             "paper_cash": safe_float(
-                paper_balance()["cash"]
+                paper["cash"]
             ),
+
             "live": mode == "LIVE",
         },
 
@@ -386,7 +724,7 @@ async def api_status():
         "equity": equity_history,
 
         "last_scan": getattr(
-            bot,
+            current_bot,
             "last_scan",
             None,
         ),
@@ -400,6 +738,8 @@ async def api_status():
 @app.get("/api/trading-mode")
 async def get_trading_mode():
 
+    current_bot = get_bot()
+
     mode = current_mode()
 
     return {
@@ -412,11 +752,11 @@ async def get_trading_mode():
         "live": mode == "LIVE",
 
         "live_orders_enabled": bool(
-            bot.kraken.live_orders_enabled
+            current_bot.kraken.live_orders_enabled
         ),
 
         "authenticated": bool(
-            bot.kraken.authenticated
+            current_bot.kraken.authenticated
         ),
 
         "config": {
@@ -445,7 +785,9 @@ async def get_trading_mode():
             ),
         },
 
-        "kraken": bot.kraken.connection_status(),
+        "kraken": (
+            current_bot.kraken.connection_status()
+        ),
     }
 
 
@@ -454,7 +796,11 @@ async def get_trading_mode():
 # ============================================================
 
 @app.post("/api/trading-mode")
-async def set_trading_mode(request: Request):
+async def set_trading_mode(
+    request: Request,
+):
+
+    current_bot = get_bot()
 
     body = await request.json()
 
@@ -468,7 +814,9 @@ async def set_trading_mode(request: Request):
 
     if requested_mode == "PAPER":
 
-        bot.kraken.set_mode("PAPER")
+        current_bot.kraken.set_mode(
+            "PAPER"
+        )
 
         return {
             "ok": True,
@@ -486,10 +834,14 @@ async def set_trading_mode(request: Request):
     if requested_mode == "LIVE":
 
         confirmation = str(
-            body.get("confirmation", "")
+            body.get(
+                "confirmation",
+                "",
+            )
         ).strip()
 
         if confirmation != "ENABLE LIVE":
+
             return JSONResponse(
                 status_code=400,
                 content={
@@ -501,10 +853,6 @@ async def set_trading_mode(request: Request):
                 },
             )
 
-        # ----------------------------------------------------
-        # Check configuration
-        # ----------------------------------------------------
-
         if not bool(
             getattr(
                 settings,
@@ -512,9 +860,10 @@ async def set_trading_mode(request: Request):
                 False,
             )
         ):
+
             raise RuntimeError(
                 "LIVE trading is disabled by configuration. "
-                "Set LIVE_TRADING=true before enabling LIVE mode."
+                "Set LIVE_TRADING=true."
             )
 
         if bool(
@@ -524,23 +873,21 @@ async def set_trading_mode(request: Request):
                 True,
             )
         ):
+
             raise RuntimeError(
                 "LIVE trading is blocked because DRY_RUN=true. "
-                "Set DRY_RUN=false before enabling LIVE mode."
+                "Set DRY_RUN=false."
             )
 
-        # ----------------------------------------------------
-        # Re-authenticate before enabling live orders
-        # ----------------------------------------------------
-
         authentication = (
-            bot.kraken.test_authentication()
+            current_bot.kraken.test_authentication()
         )
 
         if not authentication.get(
             "authenticated",
             False,
         ):
+
             raise RuntimeError(
                 authentication.get(
                     "error",
@@ -548,24 +895,21 @@ async def set_trading_mode(request: Request):
                 )
             )
 
-        # ----------------------------------------------------
-        # Get actual account summary
-        # ----------------------------------------------------
-
-        account = bot.kraken.account_summary(
-            "USD"
+        account = (
+            current_bot.kraken.account_summary(
+                "USD"
+            )
         )
 
         if account.get("error"):
+
             raise RuntimeError(
                 account["error"]
             )
 
-        # ----------------------------------------------------
-        # NOW enable LIVE runtime mode
-        # ----------------------------------------------------
-
-        bot.kraken.set_mode("LIVE")
+        current_bot.kraken.set_mode(
+            "LIVE"
+        )
 
         portfolio_value = safe_float(
             account.get(
@@ -591,7 +935,7 @@ async def set_trading_mode(request: Request):
             "live": True,
 
             "live_orders_enabled": bool(
-                bot.kraken.live_orders_enabled
+                current_bot.kraken.live_orders_enabled
             ),
 
             "authenticated": True,
@@ -604,12 +948,16 @@ async def set_trading_mode(request: Request):
 
             "account": {
                 "available_usd": available_usd,
+
                 "free": available_usd,
 
                 "usd_total": safe_float(
                     account.get(
                         "usd_total",
-                        account.get("total", 0),
+                        account.get(
+                            "total",
+                            0,
+                        ),
                     )
                 ),
 
@@ -631,10 +979,6 @@ async def set_trading_mode(request: Request):
             },
         }
 
-    # --------------------------------------------------------
-    # Invalid mode
-    # --------------------------------------------------------
-
     return JSONResponse(
         status_code=400,
         content={
@@ -654,6 +998,8 @@ async def set_trading_mode(request: Request):
 @app.get("/api/balance")
 async def api_balance():
 
+    current_bot = get_bot()
+
     mode = current_mode()
 
     # --------------------------------------------------------
@@ -665,11 +1011,17 @@ async def api_balance():
         paper = paper_balance()
 
         equity = safe_float(
-            paper.get("equity", 0)
+            paper.get(
+                "equity",
+                0,
+            )
         )
 
         cash = safe_float(
-            paper.get("cash", 0)
+            paper.get(
+                "cash",
+                0,
+            )
         )
 
         return {
@@ -702,11 +1054,14 @@ async def api_balance():
 
     try:
 
-        account = bot.kraken.account_summary(
-            "USD"
+        account = (
+            current_bot.kraken.account_summary(
+                "USD"
+            )
         )
 
         if account.get("error"):
+
             return {
                 "ok": False,
                 "mode": "LIVE",
@@ -738,7 +1093,10 @@ async def api_balance():
         portfolio_value = safe_float(
             account.get(
                 "portfolio_value_usd",
-                account.get("total", 0),
+                account.get(
+                    "total",
+                    0,
+                ),
             )
         )
 
@@ -749,21 +1107,18 @@ async def api_balance():
 
             "source": "kraken",
 
-            # Full portfolio value.
             "equity": portfolio_value,
 
             "total": portfolio_value,
 
             "portfolio_value_usd": portfolio_value,
 
-            # Actual spendable USD.
             "cash": available_usd,
 
             "free": available_usd,
 
             "usd_free": available_usd,
 
-            # Individual balances.
             "usd_total": usd_total,
 
             "usdg_total": usdg_total,
@@ -774,7 +1129,7 @@ async def api_balance():
             ),
 
             "live_orders_enabled": bool(
-                bot.kraken.live_orders_enabled
+                current_bot.kraken.live_orders_enabled
             ),
         }
 
@@ -800,22 +1155,21 @@ async def api_balance():
 @app.post("/api/start")
 async def api_start():
 
-    started = start_bot_thread()
+    result = start_bot_thread()
 
     return {
-        "ok": True,
-
-        "started": started,
-
-        "running": worker_alive(),
-
-        "mode": current_mode(),
-
-        "message": (
-            "Bot started."
-            if started
-            else "Bot is already running."
+        "ok": bool(
+            result.get(
+                "started",
+                False,
+            )
+            or result.get(
+                "running",
+                False,
+            )
         ),
+
+        **result,
     }
 
 
@@ -826,12 +1180,30 @@ async def api_start():
 @app.post("/api/stop")
 async def api_stop():
 
+    current_bot = get_bot()
+
     try:
-        if hasattr(bot, "stop"):
-            result = bot.stop()
-        elif hasattr(bot, "request_stop"):
-            result = bot.request_stop()
+
+        if hasattr(
+            current_bot,
+            "stop",
+        ):
+
+            result = (
+                current_bot.stop()
+            )
+
+        elif hasattr(
+            current_bot,
+            "request_stop",
+        ):
+
+            result = (
+                current_bot.request_stop()
+            )
+
         else:
+
             result = None
 
     except Exception as exc:
@@ -845,8 +1217,11 @@ async def api_stop():
 
     return {
         "ok": True,
+
         "running": worker_alive(),
+
         "result": result,
+
         "message": "Bot stop requested.",
     }
 
@@ -858,31 +1233,39 @@ async def api_stop():
 @app.post("/api/scan")
 async def api_scan():
 
+    current_bot = get_bot()
+
     try:
 
         if not worker_alive():
+
             return JSONResponse(
                 status_code=503,
                 content={
                     "ok": False,
                     "error": (
                         "Bot worker is offline. "
-                        "Start the bot first."
+                        "Start the bot first.",
                     ),
+                    "worker_error": _worker_error,
                 },
             )
 
-        # Preferred method.
-        if hasattr(bot, "request_scan"):
+        if hasattr(
+            current_bot,
+            "request_scan",
+        ):
 
-            result = bot.request_scan()
+            result = (
+                current_bot.request_scan()
+            )
 
             return JSONResponse(
                 status_code=202,
                 content={
                     "ok": True,
                     "queued": True,
-                    "already_scanning": bool(
+                    "already_scanning": (
                         result is False
                     ),
                     "message": (
@@ -918,8 +1301,13 @@ async def api_scan():
 @app.get("/api/signals")
 async def api_signals():
 
+    current_bot = get_bot()
+
     try:
-        signals = bot.get_signals()
+
+        signals = (
+            current_bot.get_signals()
+        )
 
     except Exception as exc:
 
@@ -944,8 +1332,13 @@ async def api_signals():
 @app.get("/api/positions")
 async def api_positions():
 
+    current_bot = get_bot()
+
     try:
-        positions = bot.get_positions()
+
+        positions = (
+            current_bot.get_positions()
+        )
 
     except Exception as exc:
 
@@ -971,6 +1364,7 @@ async def api_positions():
 async def api_equity():
 
     try:
+
         history = db.equity_history(500)
 
     except Exception as exc:
@@ -996,8 +1390,13 @@ async def api_equity():
 @app.get("/api/performance")
 async def api_performance():
 
+    current_bot = get_bot()
+
     try:
-        stats = bot.stats()
+
+        stats = (
+            current_bot.stats()
+        )
 
     except Exception as exc:
 
@@ -1021,8 +1420,13 @@ async def api_performance():
 @app.get("/api/scanner")
 async def api_scanner():
 
+    current_bot = get_bot()
+
     try:
-        scanner = bot.scanner_status()
+
+        scanner = (
+            current_bot.scanner_status()
+        )
 
     except Exception as exc:
 
@@ -1047,9 +1451,15 @@ async def api_scanner():
 @app.post("/api/kraken/test")
 async def api_kraken_test():
 
-    connection = bot.kraken.test_connection()
+    current_bot = get_bot()
 
-    authentication = bot.kraken.test_authentication()
+    connection = (
+        current_bot.kraken.test_connection()
+    )
+
+    authentication = (
+        current_bot.kraken.test_authentication()
+    )
 
     return {
         "ok": bool(
@@ -1061,7 +1471,9 @@ async def api_kraken_test():
 
         "authentication": authentication,
 
-        "kraken": bot.kraken.connection_status(),
+        "kraken": (
+            current_bot.kraken.connection_status()
+        ),
     }
 
 
@@ -1072,6 +1484,8 @@ async def api_kraken_test():
 @app.get("/api/debug")
 async def api_debug():
 
+    current_bot = get_bot()
+
     return {
         "ok": True,
 
@@ -1079,9 +1493,19 @@ async def api_debug():
 
         "worker_error": _worker_error,
 
+        "worker_started_at": (
+            _worker_started_at
+        ),
+
+        "worker_finished_at": (
+            _worker_finished_at
+        ),
+
         "mode": current_mode(),
 
-        "kraken": bot.kraken.connection_status(),
+        "kraken": (
+            current_bot.kraken.connection_status()
+        ),
 
         "config": {
             "live_trading": bool(
@@ -1139,15 +1563,20 @@ async def api_debug():
 # DASHBOARD
 # ============================================================
 
-@app.get("/", response_class=HTMLResponse)
+@app.get(
+    "/",
+    response_class=HTMLResponse,
+)
 async def dashboard():
 
     try:
+
         with open(
             "index.html",
             "r",
             encoding="utf-8",
         ) as file:
+
             return HTMLResponse(
                 file.read()
             )
@@ -1175,7 +1604,7 @@ async def dashboard():
 
 
 # ============================================================
-# HEALTH CHECK
+# HEALTH
 # ============================================================
 
 @app.get("/health")
@@ -1183,7 +1612,16 @@ async def health():
 
     return {
         "ok": True,
-        "status": "online",
+
+        "status": (
+            "online"
+            if worker_alive()
+            else "bot_stopped"
+        ),
+
         "worker_alive": worker_alive(),
+
+        "worker_error": _worker_error,
+
         "mode": current_mode(),
     }
