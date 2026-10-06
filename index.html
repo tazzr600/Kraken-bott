@@ -1,531 +1,444 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    >
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KRAKEN BOT — AI Day Trader</title>
 
-    <title>KRAKEN BOT</title>
+<style>
+    * {
+        box-sizing: border-box;
+    }
 
-    <style>
-        * {
-            box-sizing: border-box;
+    body {
+        margin: 0;
+        background: #07090d;
+        color: #f4f6f8;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .container {
+        width: min(1500px, 94%);
+        margin: 0 auto;
+        padding: 28px 0 50px;
+    }
+
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 28px;
+        flex-wrap: wrap;
+    }
+
+    .brand h1 {
+        margin: 0;
+        font-size: 32px;
+        letter-spacing: 2px;
+    }
+
+    .brand p {
+        margin: 8px 0 0;
+        color: #8e98a7;
+        font-size: 14px;
+    }
+
+    .status {
+        border: 1px solid #26303d;
+        background: #0c1118;
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-size: 13px;
+        color: #aeb8c6;
+    }
+
+    .status.online {
+        color: #8ff0b2;
+        border-color: #214d34;
+    }
+
+    .status.warning {
+        color: #ffd27a;
+        border-color: #59471e;
+    }
+
+    .cards {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .card {
+        background: #0c1118;
+        border: 1px solid #1b2430;
+        border-radius: 12px;
+        padding: 18px;
+        min-height: 105px;
+    }
+
+    .label {
+        color: #7f8a99;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+    }
+
+    .value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    .positive {
+        color: #79e5a3;
+    }
+
+    .negative {
+        color: #ff7777;
+    }
+
+    .neutral {
+        color: #f4f6f8;
+    }
+
+    .section {
+        background: #0c1118;
+        border: 1px solid #1b2430;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 18px;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+
+    .section-title {
+        margin: 0;
+        font-size: 17px;
+        letter-spacing: .5px;
+    }
+
+    .section-subtitle {
+        color: #748092;
+        font-size: 12px;
+    }
+
+    #chart {
+        width: 100%;
+        height: 320px;
+        display: block;
+        background: #080c12;
+        border-radius: 8px;
+    }
+
+    .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    button {
+        border: 1px solid #2a3441;
+        background: #121923;
+        color: #f4f6f8;
+        border-radius: 8px;
+        padding: 11px 15px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    button:hover {
+        background: #192331;
+    }
+
+    button.primary {
+        background: #f4f6f8;
+        color: #07090d;
+        border-color: #f4f6f8;
+    }
+
+    button.danger {
+        color: #ff9a9a;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }
+
+    th {
+        color: #6f7b8b;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        text-align: left;
+        padding: 11px 10px;
+        border-bottom: 1px solid #1c2530;
+    }
+
+    td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #131a23;
+        font-size: 13px;
+    }
+
+    tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .symbol {
+        font-weight: 700;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 5px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .5px;
+    }
+
+    .long {
+        color: #8ff0b2;
+        background: #102619;
+    }
+
+    .short {
+        color: #ff9696;
+        background: #291416;
+    }
+
+    .neutral-badge {
+        color: #b9c2ce;
+        background: #171d25;
+    }
+
+    .tradeable {
+        color: #8ff0b2;
+    }
+
+    .not-tradeable {
+        color: #777f8b;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+
+    .info-box {
+        background: #080c12;
+        border: 1px solid #18212c;
+        border-radius: 8px;
+        padding: 14px;
+    }
+
+    .info-box .small-label {
+        color: #697587;
+        font-size: 11px;
+        margin-bottom: 6px;
+    }
+
+    .info-box .small-value {
+        font-size: 14px;
+        font-weight: 600;
+        word-break: break-word;
+    }
+
+    .empty {
+        color: #657182;
+        text-align: center;
+        padding: 30px;
+    }
+
+    .footer {
+        color: #586474;
+        text-align: center;
+        font-size: 11px;
+        margin-top: 25px;
+    }
+
+    @media (max-width: 1100px) {
+        .cards {
+            grid-template-columns: repeat(3, 1fr);
         }
 
-        html {
-            background: #000;
-            color-scheme: dark;
+        .info-grid {
+            grid-template-columns: repeat(2, 1fr);
         }
+    }
 
-        body {
-            margin: 0;
-            padding: 0;
-            background: #000;
-            color: #f5f5f5;
-            font-family:
-                -apple-system,
-                BlinkMacSystemFont,
-                "SF Pro Display",
-                "SF Pro Text",
-                Arial,
-                sans-serif;
-            overflow-x: hidden;
-        }
-
+    @media (max-width: 650px) {
         .container {
-            width: min(1400px, 100%);
-            margin: 0 auto;
-            padding: 30px 24px 80px;
-        }
-
-        /* HEADER */
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            padding-bottom: 28px;
-            border-bottom: 1px solid #222;
-            margin-bottom: 32px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
+            width: 94%;
+            padding-top: 18px;
         }
 
         .brand h1 {
-            margin: 0;
-            font-size: clamp(30px, 5vw, 52px);
-            letter-spacing: 2px;
-            font-weight: 800;
+            font-size: 25px;
         }
 
-        .connection {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 17px;
-            color: #aaa;
-            white-space: nowrap;
-        }
-
-        .status-dot {
-            width: 13px;
-            height: 13px;
-            border-radius: 50%;
-            background: #ff3b30;
-            box-shadow: 0 0 14px rgba(255, 59, 48, .7);
-        }
-
-        .status-dot.online {
-            background: #00e676;
-            box-shadow: 0 0 14px rgba(0, 230, 118, .7);
-        }
-
-        /* CARDS */
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 18px;
-            margin-bottom: 40px;
+        .cards {
+            grid-template-columns: repeat(2, 1fr);
         }
 
         .card {
-            background: #0b0b0b;
-            border: 1px solid #222;
-            border-radius: 24px;
-            padding: 28px;
-            min-width: 0;
-        }
-
-        .label {
-            color: #888;
-            font-size: 15px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 14px;
+            padding: 14px;
         }
 
         .value {
-            font-size: clamp(30px, 5vw, 48px);
-            font-weight: 750;
-            letter-spacing: -.5px;
+            font-size: 20px;
         }
 
-        .sub {
-            color: #777;
-            margin-top: 8px;
-            font-size: 16px;
+        .info-grid {
+            grid-template-columns: 1fr;
         }
 
-        .positive {
-            color: #00e676;
+        #chart {
+            height: 250px;
         }
-
-        .negative {
-            color: #ff5252;
-        }
-
-        /* SECTION */
-
-        section {
-            margin-top: 44px;
-        }
-
-        section h2 {
-            margin: 0 0 22px;
-            font-size: clamp(28px, 4vw, 42px);
-            letter-spacing: -.5px;
-        }
-
-        /* TABLE */
-
-        .table-wrap {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            border: 1px solid #181818;
-            border-radius: 22px;
-            background: #080808;
-        }
-
-        table {
-            width: 100%;
-            min-width: 950px;
-            border-collapse: collapse;
-        }
-
-        th {
-            color: #777;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            text-align: left;
-            padding: 18px 16px;
-            border-bottom: 1px solid #222;
-            white-space: nowrap;
-        }
-
-        td {
-            padding: 18px 16px;
-            border-bottom: 1px solid #171717;
-            font-size: 15px;
-            white-space: nowrap;
-        }
-
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        /* BADGES */
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 82px;
-            padding: 8px 12px;
-            border-radius: 10px;
-            font-weight: 700;
-            font-size: 13px;
-        }
-
-        .long {
-            background: rgba(0, 230, 118, .16);
-            color: #36ef94;
-        }
-
-        .short {
-            background: rgba(255, 59, 48, .16);
-            color: #ff6b63;
-        }
-
-        .neutral {
-            background: rgba(150, 150, 150, .18);
-            color: #bbb;
-        }
-
-        .yes {
-            color: #00e676;
-            font-weight: 700;
-        }
-
-        .no {
-            color: #ff5252;
-            font-weight: 700;
-        }
-
-        /* CONTROLS */
-
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin: 28px 0 10px;
-        }
-
-        button {
-            border: 1px solid #292929;
-            background: #111;
-            color: white;
-            padding: 14px 22px;
-            border-radius: 13px;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: .2s ease;
-        }
-
-        button:hover {
-            background: #1b1b1b;
-            border-color: #444;
-        }
-
-        button:active {
-            transform: scale(.98);
-        }
-
-        button.primary {
-            background: #f5f5f5;
-            color: #000;
-            border-color: #f5f5f5;
-        }
-
-        button.danger {
-            color: #ff625a;
-        }
-
-        /* ERROR */
-
-        .error {
-            display: none;
-            margin-top: 18px;
-            padding: 16px 18px;
-            border: 1px solid rgba(255, 59, 48, .35);
-            background: rgba(255, 59, 48, .08);
-            color: #ff8079;
-            border-radius: 14px;
-            line-height: 1.5;
-        }
-
-        .error.show {
-            display: block;
-        }
-
-        /* EMPTY */
-
-        .empty {
-            color: #666;
-            text-align: center;
-            padding: 28px;
-        }
-
-        /* FOOTER */
-
-        .footer {
-            margin-top: 60px;
-            padding-top: 25px;
-            border-top: 1px solid #181818;
-            color: #555;
-            text-align: center;
-            font-size: 13px;
-        }
-
-        /* MOBILE */
-
-        @media (max-width: 700px) {
-
-            .container {
-                padding:
-                    24px 16px
-                    calc(50px + env(safe-area-inset-bottom));
-            }
-
-            .header {
-                align-items: flex-start;
-                flex-direction: column;
-                gap: 14px;
-                padding-bottom: 22px;
-            }
-
-            .connection {
-                font-size: 14px;
-            }
-
-            .grid {
-                grid-template-columns: 1fr;
-                gap: 14px;
-            }
-
-            .card {
-                padding: 22px;
-                border-radius: 20px;
-            }
-
-            .value {
-                font-size: 34px;
-            }
-
-            section {
-                margin-top: 36px;
-            }
-
-            section h2 {
-                font-size: 30px;
-            }
-
-            .controls {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-            }
-
-            button {
-                width: 100%;
-            }
-        }
-    </style>
+    }
+</style>
 </head>
 
 <body>
 
 <div class="container">
 
-    <!-- HEADER -->
-
-    <header class="header">
-
+    <header>
         <div class="brand">
             <h1>KRAKEN BOT</h1>
-
-            <div class="connection">
-                <span id="statusDot" class="status-dot"></span>
-                <span id="connectionText">
-                    Kraken Checking...
-                </span>
-            </div>
+            <p>Full-market crypto scanner • ML day trading • paper performance</p>
         </div>
 
+        <div id="statusBadge" class="status">
+            Connecting...
+        </div>
     </header>
 
 
-    <!-- SUMMARY -->
-
-    <div class="grid">
-
-        <div class="card">
-            <div class="label">Mode</div>
-            <div id="mode" class="value">PAPER</div>
-            <div id="running" class="sub">
-                Checking...
-            </div>
-        </div>
+    <!-- PERFORMANCE CARDS -->
+    <div class="cards">
 
         <div class="card">
             <div class="label">Paper Equity</div>
-            <div id="equity" class="value">
-                $1,000.00
-            </div>
-            <div id="returnPct" class="sub positive">
-                0.00%
-            </div>
+            <div id="equity" class="value">$1,000.00</div>
+        </div>
+
+        <div class="card">
+            <div class="label">Return</div>
+            <div id="return" class="value">0.00%</div>
         </div>
 
         <div class="card">
             <div class="label">Available Cash</div>
-            <div id="cash" class="value">
-                $1,000.00
-            </div>
+            <div id="cash" class="value">$1,000.00</div>
         </div>
 
         <div class="card">
-            <div class="label">Realized P&amp;L</div>
-            <div id="realizedPnl" class="value positive">
-                $0.00
-            </div>
+            <div class="label">Realized P&L</div>
+            <div id="realized" class="value">$0.00</div>
         </div>
 
         <div class="card">
             <div class="label">Win Rate</div>
-            <div id="winRate" class="value">
-                0.00%
-            </div>
-
-            <div id="tradeCount" class="sub">
-                0 trades
-            </div>
+            <div id="winrate" class="value">0.00%</div>
         </div>
 
         <div class="card">
-            <div class="label">Last Scan</div>
-            <div id="lastScan" class="value">
-                --
-            </div>
-
-            <div id="botError" class="sub">
-                No errors
-            </div>
+            <div class="label">Liquid Markets</div>
+            <div id="markets" class="value">0</div>
         </div>
 
     </div>
 
 
-    <!-- KRAKEN -->
+    <!-- EQUITY -->
+    <div class="section">
 
-    <section>
-
-        <h2>Kraken API</h2>
-
-        <div class="card">
-
-            <div class="grid" style="margin:0;">
-
-                <div>
-                    <div class="label">
-                        Connection
-                    </div>
-
-                    <div
-                        id="krakenConnection"
-                        class="value"
-                        style="font-size:28px;"
-                    >
-                        CHECKING
-                    </div>
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Paper Equity Growth</h2>
+                <div class="section-subtitle">
+                    Simulated account value from bot performance
                 </div>
-
-                <div>
-                    <div class="label">
-                        Authentication
-                    </div>
-
-                    <div
-                        id="krakenAuth"
-                        class="value"
-                        style="font-size:28px;"
-                    >
-                        CHECKING
-                    </div>
-                </div>
-
             </div>
 
-            <div id="krakenError" class="error"></div>
-
+            <div id="chartInfo" class="section-subtitle">
+                Waiting for equity data...
+            </div>
         </div>
 
-    </section>
+        <canvas id="chart"></canvas>
+
+    </div>
 
 
     <!-- CONTROLS -->
+    <div class="section">
 
-    <section>
-
-        <h2>Bot Controls</h2>
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Bot Controls</h2>
+                <div class="section-subtitle">
+                    Autonomous trading engine
+                </div>
+            </div>
+        </div>
 
         <div class="controls">
 
-            <button
-                class="primary"
-                onclick="startBot()"
-            >
+            <button class="primary" onclick="startBot()">
                 Start Bot
             </button>
 
-            <button
-                class="danger"
-                onclick="stopBot()"
-            >
+            <button class="danger" onclick="stopBot()">
                 Stop Bot
             </button>
 
-            <button
-                onclick="runScan()"
-            >
-                Run Scan
+            <button onclick="runScan()">
+                Run Full-Market Scan
             </button>
 
-            <button
-                onclick="refresh()"
-            >
+            <button onclick="refresh()">
                 Refresh
             </button>
 
         </div>
 
-    </section>
+    </div>
 
 
     <!-- AI SIGNALS -->
+    <div class="section">
 
-    <section>
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">AI Market Signals</h2>
+                <div class="section-subtitle">
+                    Kraken liquid markets ranked by ML + strategy engine
+                </div>
+            </div>
 
-        <h2>AI Market Signals</h2>
+            <div id="signalInfo" class="section-subtitle">
+                Loading...
+            </div>
+        </div>
 
         <div class="table-wrap">
 
@@ -533,23 +446,24 @@
 
                 <thead>
                     <tr>
-                        <th>Symbol</th>
+                        <th>Rank</th>
+                        <th>Market</th>
                         <th>Price</th>
+                        <th>24h Volume</th>
                         <th>Direction</th>
-                        <th>Probability</th>
-                        <th>Confidence</th>
-                        <th>Strategy</th>
-                        <th>Agreement</th>
+                        <th>AI Prob.</th>
                         <th>Expected Move</th>
                         <th>Score</th>
-                        <th>Decision</th>
+                        <th>Strategy</th>
+                        <th>Regime</th>
+                        <th>Trade</th>
                     </tr>
                 </thead>
 
                 <tbody id="signals">
                     <tr>
-                        <td colspan="10" class="empty">
-                            Waiting for AI signals...
+                        <td colspan="11" class="empty">
+                            Loading market signals...
                         </td>
                     </tr>
                 </tbody>
@@ -558,72 +472,41 @@
 
         </div>
 
-    </section>
+    </div>
 
 
-    <!-- STRATEGIES -->
+    <!-- POSITIONS -->
+    <div class="section">
 
-    <section>
-
-        <h2>Strategy Breakdown</h2>
-
-        <div class="table-wrap">
-
-            <table>
-
-                <thead>
-                    <tr>
-                        <th>Symbol</th>
-                        <th>Regime</th>
-                        <th>Momentum</th>
-                        <th>Trend</th>
-                        <th>Mean Reversion</th>
-                        <th>Breakout</th>
-                        <th>VWAP</th>
-                        <th>MACD</th>
-                        <th>Volume</th>
-                    </tr>
-                </thead>
-
-                <tbody id="strategies">
-                    <tr>
-                        <td colspan="9" class="empty">
-                            Waiting for strategy data...
-                        </td>
-                    </tr>
-                </tbody>
-
-            </table>
-
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Open Positions</h2>
+                <div class="section-subtitle">
+                    Current bot positions
+                </div>
+            </div>
         </div>
 
-    </section>
-
-
-    <!-- OPEN POSITIONS -->
-
-    <section>
-
-        <h2>Open Positions</h2>
-
         <div class="table-wrap">
 
             <table>
 
                 <thead>
                     <tr>
-                        <th>Symbol</th>
+                        <th>Market</th>
                         <th>Entry</th>
+                        <th>Current</th>
                         <th>Amount</th>
-                        <th>Notional</th>
                         <th>Stop</th>
                         <th>Target</th>
+                        <th>P&L</th>
+                        <th>Opened</th>
                     </tr>
                 </thead>
 
                 <tbody id="positions">
                     <tr>
-                        <td colspan="6" class="empty">
+                        <td colspan="8" class="empty">
                             No open positions
                         </td>
                     </tr>
@@ -633,1004 +516,1042 @@
 
         </div>
 
-    </section>
+    </div>
 
 
-    <div id="errorBox" class="error"></div>
+    <!-- SYSTEM INFORMATION -->
+    <div class="section">
+
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Kraken / Scanner</h2>
+                <div class="section-subtitle">
+                    Live connection and market discovery status
+                </div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+
+            <div class="info-box">
+                <div class="small-label">Kraken Connection</div>
+                <div id="krakenConnection" class="small-value">
+                    —
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Authentication</div>
+                <div id="krakenAuth" class="small-value">
+                    —
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Trading Mode</div>
+                <div id="tradingMode" class="small-value">
+                    —
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Markets Loaded</div>
+                <div id="marketsLoaded" class="small-value">
+                    —
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Tickers Received</div>
+                <div id="tickersReceived" class="small-value">
+                    —
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Markets Sent to ML</div>
+                <div id="marketsToML" class="small-value">
+                    —
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Allowed Quotes</div>
+                <div id="allowedQuotes" class="small-value">
+                    —
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Last Scanner Refresh</div>
+                <div id="lastScannerRefresh" class="small-value">
+                    —
+                </div>
+            </div>
+
+        </div>
+
+    </div>
 
 
-    <footer class="footer">
-        KRAKEN BOT • Autonomous AI Paper Trading
-    </footer>
+    <!-- PERFORMANCE DETAILS -->
+    <div class="section">
+
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Performance Details</h2>
+                <div class="section-subtitle">
+                    Risk and trading statistics
+                </div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+
+            <div class="info-box">
+                <div class="small-label">Total Trades</div>
+                <div id="totalTrades" class="small-value">0</div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Wins / Losses</div>
+                <div id="winsLosses" class="small-value">0 / 0</div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Profit Factor</div>
+                <div id="profitFactor" class="small-value">0.00</div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Unrealized P&L</div>
+                <div id="unrealized" class="small-value">$0.00</div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">24h P&L</div>
+                <div id="pnl24" class="small-value">$0.00</div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">24h Trades</div>
+                <div id="trades24" class="small-value">0</div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Drawdown</div>
+                <div id="drawdown" class="small-value">0.00%</div>
+            </div>
+
+            <div class="info-box">
+                <div class="small-label">Consecutive Losses</div>
+                <div id="consecutiveLosses" class="small-value">0</div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="footer">
+        KRAKEN BOT • Automated AI day-trading engine • PAPER MODE
+    </div>
 
 </div>
 
 
 <script>
 
-    /*
-     * KRAKEN BOT DASHBOARD
-     *
-     * IMPORTANT:
-     * Everything is inside this script tag.
-     * This prevents JavaScript from appearing
-     * as visible text on the page.
-     */
+const $ = id => document.getElementById(id);
 
 
-    function money(value) {
+function money(value) {
 
-        const number = Number(value || 0);
+    const n = Number(value || 0);
 
-        return "$" + number.toLocaleString(
-            "en-US",
-            {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }
+    return n.toLocaleString(undefined, {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+
+function number(value, decimals = 2) {
+
+    const n = Number(value || 0);
+
+    return n.toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
+}
+
+
+function pct(value) {
+
+    const n = Number(value || 0) * 100;
+
+    return n.toFixed(2) + "%";
+}
+
+
+function signedMoney(value) {
+
+    const n = Number(value || 0);
+
+    if (n > 0) {
+        return "+" + money(n);
+    }
+
+    return money(n);
+}
+
+
+function colorClass(value) {
+
+    const n = Number(value || 0);
+
+    if (n > 0) return "positive";
+    if (n < 0) return "negative";
+
+    return "neutral";
+}
+
+
+function escapeHtml(value) {
+
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+/* =========================
+   EQUITY CHART
+========================= */
+
+function drawEquity(history) {
+
+    const canvas = $("chart");
+
+    const rect = canvas.getBoundingClientRect();
+
+    const ratio = window.devicePixelRatio || 1;
+
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.scale(ratio, ratio);
+
+    const width = rect.width;
+    const height = rect.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (!history || history.length === 0) {
+
+        ctx.fillStyle = "#667384";
+        ctx.font = "14px Arial";
+
+        ctx.textAlign = "center";
+        ctx.fillText(
+            "Waiting for equity snapshots...",
+            width / 2,
+            height / 2
+        );
+
+        $("chartInfo").textContent =
+            "The bot will populate this chart automatically.";
+
+        return;
+    }
+
+
+    const values = history
+        .map(x => Number(x.equity || 0))
+        .filter(x => Number.isFinite(x));
+
+
+    if (!values.length) {
+        return;
+    }
+
+
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+
+    const padding = 45;
+
+    const range =
+        maxValue - minValue === 0
+            ? Math.max(Math.abs(maxValue) * 0.01, 1)
+            : maxValue - minValue;
+
+
+    /* Grid */
+
+    ctx.strokeStyle = "#151d27";
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < 5; i++) {
+
+        const y =
+            padding +
+            ((height - padding * 2) / 4) * i;
+
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+    }
+
+
+    /* Y labels */
+
+    ctx.fillStyle = "#657182";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "left";
+
+    for (let i = 0; i < 5; i++) {
+
+        const value =
+            maxValue -
+            (range / 4) * i;
+
+        const y =
+            padding +
+            ((height - padding * 2) / 4) * i;
+
+        ctx.fillText(
+            money(value),
+            5,
+            y + 4
         );
     }
 
 
-    function percent(value) {
+    /* Equity line */
 
-        return (
-            Number(value || 0) * 100
-        ).toFixed(2) + "%";
+    ctx.beginPath();
 
-    }
+    values.forEach((value, index) => {
 
+        const x =
+            padding +
+            (index / Math.max(values.length - 1, 1)) *
+            (width - padding * 2);
 
-    function number(value, decimals = 2) {
+        const y =
+            padding +
+            ((maxValue - value) / range) *
+            (height - padding * 2);
 
-        return Number(value || 0).toFixed(decimals);
-
-    }
-
-
-    function esc(value) {
-
-        return String(
-            value ?? ""
-        )
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    }
-
-
-    function directionBadge(direction) {
-
-        const d = String(
-            direction || "NEUTRAL"
-        ).toUpperCase();
-
-        let cls = "neutral";
-
-        if (d === "LONG") {
-            cls = "long";
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
         }
 
-        if (d === "SHORT") {
-            cls = "short";
-        }
+    });
 
-        return `
-            <span class="badge ${cls}">
-                ${esc(d)}
-            </span>
+
+    ctx.strokeStyle = "#f4f6f8";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+
+    /* Current point */
+
+    const lastValue = values[values.length - 1];
+
+    const lastX =
+        padding +
+        (width - padding * 2);
+
+    const lastY =
+        padding +
+        ((maxValue - lastValue) / range) *
+        (height - padding * 2);
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        lastX,
+        lastY,
+        4,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#f4f6f8";
+    ctx.fill();
+
+
+    $("chartInfo").textContent =
+        `${values.length} snapshots • Current ${money(lastValue)}`;
+}
+
+
+/* =========================
+   STATUS
+========================= */
+
+async function refreshStatus() {
+
+    const response = await fetch("/api/status");
+
+    if (!response.ok) {
+        throw new Error("Status request failed");
+    }
+
+    return await response.json();
+}
+
+
+/* =========================
+   PERFORMANCE
+========================= */
+
+async function refreshPerformance() {
+
+    const response = await fetch("/api/performance");
+
+    if (!response.ok) {
+        throw new Error("Performance request failed");
+    }
+
+    const d = await response.json();
+
+    $("equity").textContent =
+        money(d.paper_equity);
+
+    $("return").textContent =
+        pct(d.return_pct);
+
+    $("return").className =
+        "value " + colorClass(d.return_pct);
+
+    $("cash").textContent =
+        money(d.paper_balance);
+
+    $("realized").textContent =
+        signedMoney(d.realized_pnl);
+
+    $("realized").className =
+        "value " + colorClass(d.realized_pnl);
+
+    $("winrate").textContent =
+        pct(d.win_rate);
+
+
+    $("totalTrades").textContent =
+        number(d.trades, 0);
+
+    $("winsLosses").textContent =
+        `${number(d.wins, 0)} / ${number(d.losses, 0)}`;
+
+    $("profitFactor").textContent =
+        number(d.profit_factor, 2);
+
+    $("unrealized").textContent =
+        signedMoney(d.unrealized_pnl);
+
+    $("unrealized").className =
+        "small-value " + colorClass(d.unrealized_pnl);
+
+    $("pnl24").textContent =
+        signedMoney(d.last_24h_pnl);
+
+    $("pnl24").className =
+        "small-value " + colorClass(d.last_24h_pnl);
+
+    $("trades24").textContent =
+        number(d.last_24h_trades, 0);
+
+    $("drawdown").textContent =
+        pct(d.drawdown_pct);
+
+    $("consecutiveLosses").textContent =
+        number(d.consecutive_losses, 0);
+
+
+    const historyResponse =
+        await fetch("/api/equity?limit=240");
+
+    if (historyResponse.ok) {
+
+        const history =
+            await historyResponse.json();
+
+        drawEquity(history);
+
+    }
+}
+
+
+/* =========================
+   SIGNALS
+========================= */
+
+async function refreshSignals() {
+
+    const response =
+        await fetch("/api/signals");
+
+    if (!response.ok) {
+        throw new Error("Signals request failed");
+    }
+
+    const data =
+        await response.json();
+
+    const signals =
+        Array.isArray(data)
+            ? data
+            : (data.signals || []);
+
+
+    const body = $("signals");
+
+    if (!signals.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="11" class="empty">
+                    No market signals available yet.
+                </td>
+            </tr>
         `;
 
+        $("signalInfo").textContent =
+            "Waiting for scanner";
+
+        return;
     }
 
 
-    function pnlClass(value) {
-
-        return Number(value || 0) >= 0
-            ? "positive"
-            : "negative";
-
-    }
+    $("signalInfo").textContent =
+        `${signals.length} markets analyzed`;
 
 
-    async function refresh() {
+    body.innerHTML =
+        signals.map((s, index) => {
 
-        try {
+            const direction =
+                String(
+                    s.direction ||
+                    s.prediction ||
+                    "NEUTRAL"
+                ).toUpperCase();
 
-            const response =
-                await fetch(
-                    "/api/status",
-                    {
-                        cache: "no-store"
-                    }
-                );
 
-            if (!response.ok) {
+            let directionClass =
+                "neutral-badge";
 
-                throw new Error(
-                    "Dashboard API returned HTTP " +
-                    response.status
-                );
-
+            if (direction === "LONG") {
+                directionClass = "long";
             }
 
-            const data =
-                await response.json();
+            if (direction === "SHORT") {
+                directionClass = "short";
+            }
 
-            updateDashboard(data);
 
-        }
+            const probability =
+                s.probability ??
+                s.ai_probability ??
+                s.ml_probability ??
+                0;
 
-        catch (error) {
 
-            console.error(
-                "Dashboard refresh failed:",
-                error
-            );
+            const expectedMove =
+                s.expected_move ??
+                s.expected_move_pct ??
+                0;
 
-            document
-                .getElementById("connectionText")
-                .textContent =
-                "Dashboard Offline";
 
-            document
-                .getElementById("statusDot")
-                .classList
-                .remove("online");
+            const score =
+                s.score ??
+                s.combined_score ??
+                0;
 
-            showError(
-                "Dashboard connection error: " +
-                error.message
-            );
 
-        }
+            const strategy =
+                s.strategy_score ??
+                s.strategy ??
+                0;
 
+
+            const regime =
+                s.regime ||
+                "—";
+
+
+            const volume =
+                s.quote_volume ??
+                s.volume_24h ??
+                0;
+
+
+            const tradeable =
+                s.tradeable === true;
+
+
+            return `
+                <tr>
+
+                    <td>
+                        ${escapeHtml(
+                            s.rank ?? index + 1
+                        )}
+                    </td>
+
+                    <td class="symbol">
+                        ${escapeHtml(
+                            s.symbol || "—"
+                        )}
+                    </td>
+
+                    <td>
+                        ${money(
+                            s.last ??
+                            s.price ??
+                            0
+                        )}
+                    </td>
+
+                    <td>
+                        ${money(volume)}
+                    </td>
+
+                    <td>
+                        <span class="badge ${directionClass}">
+                            ${escapeHtml(direction)}
+                        </span>
+                    </td>
+
+                    <td>
+                        ${pct(probability)}
+                    </td>
+
+                    <td>
+                        ${pct(expectedMove)}
+                    </td>
+
+                    <td>
+                        ${number(score, 3)}
+                    </td>
+
+                    <td>
+                        ${number(strategy, 3)}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(regime)}
+                    </td>
+
+                    <td class="${
+                        tradeable
+                            ? "tradeable"
+                            : "not-tradeable"
+                    }">
+                        ${
+                            tradeable
+                                ? "YES"
+                                : "NO"
+                        }
+                    </td>
+
+                </tr>
+            `;
+
+        }).join("");
+}
+
+
+/* =========================
+   POSITIONS
+========================= */
+
+async function refreshPositions() {
+
+    const response =
+        await fetch("/api/positions");
+
+    if (!response.ok) {
+        throw new Error("Positions request failed");
+    }
+
+    const data =
+        await response.json();
+
+    const positions =
+        Array.isArray(data)
+            ? data
+            : (data.positions || []);
+
+
+    const body =
+        $("positions");
+
+
+    if (!positions.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="8" class="empty">
+                    No open positions
+                </td>
+            </tr>
+        `;
+
+        return;
     }
 
 
-    function updateDashboard(data) {
+    body.innerHTML =
+        positions.map(p => {
 
-        const stats =
-            data.stats || {};
-
-        const kraken =
-            data.kraken || {};
-
-        const signals =
-            data.signals || {};
-
-        const positions =
-            data.positions || [];
+            const pnl =
+                p.unrealized_pnl ??
+                p.pnl ??
+                0;
 
 
-        /*
-         * MODE
-         */
+            return `
+                <tr>
 
-        document
-            .getElementById("mode")
-            .textContent =
-            data.mode || "PAPER";
+                    <td class="symbol">
+                        ${escapeHtml(
+                            p.symbol || "—"
+                        )}
+                    </td>
 
+                    <td>
+                        ${money(
+                            p.entry_price ??
+                            p.entry ??
+                            0
+                        )}
+                    </td>
 
-        document
-            .getElementById("running")
-            .textContent =
-            data.running
-                ? "Bot running"
-                : "Bot stopped";
+                    <td>
+                        ${money(
+                            p.current_price ??
+                            p.current ??
+                            0
+                        )}
+                    </td>
 
+                    <td>
+                        ${number(
+                            p.amount ?? 0,
+                            6
+                        )}
+                    </td>
 
-        /*
-         * EQUITY
-         */
+                    <td>
+                        ${money(
+                            p.stop_loss ??
+                            p.stop ??
+                            0
+                        )}
+                    </td>
 
-        document
-            .getElementById("equity")
-            .textContent =
-            money(
-                stats.paper_equity
-            );
+                    <td>
+                        ${money(
+                            p.take_profit ??
+                            p.target ??
+                            0
+                        )}
+                    </td>
 
+                    <td class="${colorClass(pnl)}">
+                        ${signedMoney(pnl)}
+                    </td>
 
-        const returnElement =
-            document.getElementById(
-                "returnPct"
-            );
+                    <td>
+                        ${escapeHtml(
+                            p.opened_at ||
+                            p.timestamp ||
+                            "—"
+                        )}
+                    </td>
 
-        returnElement.textContent =
-            percent(
-                stats.return_pct
-            );
+                </tr>
+            `;
 
-        returnElement.className =
-            "sub " +
-            pnlClass(
-                stats.return_pct
-            );
-
-
-        /*
-         * CASH
-         */
-
-        document
-            .getElementById("cash")
-            .textContent =
-            money(
-                stats.paper_balance
-            );
-
-
-        /*
-         * REALIZED PNL
-         */
-
-        const pnl =
-            Number(
-                stats.realized_pnl || 0
-            );
-
-        const pnlElement =
-            document.getElementById(
-                "realizedPnl"
-            );
-
-        pnlElement.textContent =
-            money(pnl);
-
-        pnlElement.className =
-            "value " +
-            pnlClass(pnl);
+        }).join("");
+}
 
 
-        /*
-         * WIN RATE
-         */
+/* =========================
+   MAIN REFRESH
+========================= */
 
-        document
-            .getElementById("winRate")
-            .textContent =
-            percent(
-                stats.win_rate
-            );
+async function refresh() {
 
+    try {
 
-        document
-            .getElementById("tradeCount")
-            .textContent =
-            `${stats.trades || 0} trades`;
+        const status =
+            await refreshStatus();
 
 
-        /*
-         * LAST SCAN
-         */
-
-        if (data.last_scan) {
-
-            const date =
-                new Date(
-                    data.last_scan * 1000
-                );
-
-            document
-                .getElementById("lastScan")
-                .textContent =
-                date.toLocaleTimeString();
-
-        }
-        else {
-
-            document
-                .getElementById("lastScan")
-                .textContent =
-                "--";
-
-        }
-
-
-        /*
-         * BOT ERROR
-         */
-
-        document
-            .getElementById("botError")
-            .textContent =
-            data.error
-                ? data.error
-                : "No errors";
-
-
-        /*
-         * KRAKEN CONNECTION
-         */
-
-        const connected =
-            !!kraken.connected;
+        /* STATUS BADGE */
 
         const authenticated =
-            !!kraken.authenticated;
+            status.kraken?.authenticated === true;
+
+        const connected =
+            status.kraken?.connected === true;
+
+        const running =
+            status.bot?.running === true;
 
 
-        document
-            .getElementById(
-                "krakenConnection"
-            )
-            .textContent =
-            connected
-                ? "ONLINE"
-                : "OFFLINE";
+        if (authenticated && running) {
+
+            $("statusBadge").className =
+                "status online";
+
+            $("statusBadge").textContent =
+                "Kraken Authenticated • Bot Running • PAPER";
+
+        } else if (authenticated) {
+
+            $("statusBadge").className =
+                "status online";
+
+            $("statusBadge").textContent =
+                "Kraken Authenticated • Bot Stopped • PAPER";
+
+        } else if (connected) {
+
+            $("statusBadge").className =
+                "status warning";
+
+            $("statusBadge").textContent =
+                "Kraken Connected • Authentication Pending";
+
+        } else {
+
+            $("statusBadge").className =
+                "status warning";
+
+            $("statusBadge").textContent =
+                "Kraken Connection Error";
+
+        }
 
 
-        document
-            .getElementById(
-                "krakenConnection"
-            )
-            .className =
-            "value " +
-            (
-                connected
-                    ? "positive"
-                    : "negative"
+        /* SCANNER */
+
+        const scanner =
+            status.scanner || {};
+
+
+        $("markets").textContent =
+            number(
+                scanner.liquid_markets || 0,
+                0
             );
 
 
-        document
-            .getElementById(
-                "krakenAuth"
-            )
-            .textContent =
+        $("krakenConnection").textContent =
+            scanner.last_error
+                ? "Error"
+                : (
+                    connected
+                        ? "Connected"
+                        : "Offline"
+                );
+
+
+        $("krakenAuth").textContent =
             authenticated
-                ? "AUTHENTICATED"
-                : "NOT AUTHENTICATED";
+                ? "Authenticated"
+                : "Not authenticated";
 
 
-        document
-            .getElementById(
-                "krakenAuth"
-            )
-            .className =
-            "value " +
-            (
-                authenticated
-                    ? "positive"
-                    : "negative"
+        $("tradingMode").textContent =
+            status.kraken?.live_orders_enabled
+                ? "LIVE"
+                : "PAPER";
+
+
+        $("marketsLoaded").textContent =
+            number(
+                scanner.markets_loaded || 0,
+                0
             );
 
 
-        const dot =
-            document.getElementById(
-                "statusDot"
-            );
-
-        const connectionText =
-            document.getElementById(
-                "connectionText"
+        $("tickersReceived").textContent =
+            number(
+                scanner.tickers_received || 0,
+                0
             );
 
 
-        if (authenticated) {
-
-            dot.classList.add("online");
-
-            connectionText.textContent =
-                "Kraken Authenticated";
-
-        }
-        else if (connected) {
-
-            dot.classList.remove("online");
-
-            connectionText.textContent =
-                "Kraken Connected • Authentication Required";
-
-        }
-        else {
-
-            dot.classList.remove("online");
-
-            connectionText.textContent =
-                "Kraken Offline";
-
-        }
-
-
-        /*
-         * KRAKEN ERROR
-         */
-
-        const krakenError =
-            document.getElementById(
-                "krakenError"
+        $("marketsToML").textContent =
+            number(
+                scanner.markets_sent_to_ml || 0,
+                0
             );
 
 
-        if (kraken.error) {
-
-            krakenError
-                .textContent =
-                kraken.error;
-
-            krakenError
-                .classList
-                .add("show");
-
-        }
-        else {
-
-            krakenError
-                .classList
-                .remove("show");
-
-        }
+        $("allowedQuotes").textContent =
+            Array.isArray(scanner.allowed_quotes)
+                ? scanner.allowed_quotes.join(", ")
+                : (
+                    scanner.allowed_quotes || "—"
+                );
 
 
-        /*
-         * SIGNALS
-         */
-
-        renderSignals(signals);
-
-
-        /*
-         * STRATEGIES
-         */
-
-        renderStrategies(signals);
+        $("lastScannerRefresh").textContent =
+            scanner.last_refresh
+                ? new Date(
+                    scanner.last_refresh * 1000
+                  ).toLocaleString()
+                : "Waiting";
 
 
-        /*
-         * POSITIONS
-         */
+        await Promise.all([
+            refreshPerformance(),
+            refreshSignals(),
+            refreshPositions()
+        ]);
 
-        renderPositions(positions);
+    } catch (error) {
 
+        console.error(error);
 
-        /*
-         * GENERAL ERROR
-         */
+        $("statusBadge").className =
+            "status warning";
 
-        if (data.error) {
-
-            showError(
-                data.error
-            );
-
-        }
-        else {
-
-            hideError();
-
-        }
+        $("statusBadge").textContent =
+            "Dashboard connection error";
 
     }
+}
 
 
-    function renderSignals(signals) {
+/* =========================
+   BOT CONTROLS
+========================= */
 
-        const tbody =
-            document.getElementById(
-                "signals"
-            );
+async function startBot() {
 
+    try {
 
-        const rows =
-            Object.entries(
-                signals
-            );
+        const response =
+            await fetch("/api/start", {
+                method: "POST"
+            });
 
+        const data =
+            await response.json();
 
-        if (!rows.length) {
+        console.log(data);
 
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="10"
-                        class="empty">
-                        Waiting for AI signals...
-                    </td>
-                </tr>
-            `;
+        await refresh();
 
-            return;
+    } catch (error) {
 
-        }
-
-
-        tbody.innerHTML =
-            rows
-                .sort(
-                    (
-                        [, a],
-                        [, b]
-                    ) =>
-                        Number(
-                            b.score || 0
-                        ) -
-                        Number(
-                            a.score || 0
-                        )
-                )
-                .map(
-                    ([symbol, signal]) => {
-
-                        const tradeable =
-                            signal.tradeable;
-
-
-                        return `
-                            <tr>
-
-                                <td>
-                                    <strong>
-                                        ${esc(symbol)}
-                                    </strong>
-                                </td>
-
-                                <td>
-                                    ${money(
-                                        signal.price
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${directionBadge(
-                                        signal.direction
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${percent(
-                                        signal.probability_up
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${percent(
-                                        signal.confidence
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        signal.strategy_score,
-                                        3
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${percent(
-                                        signal.strategy_agreement
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${percent(
-                                        signal.expected_move
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        signal.score,
-                                        3
-                                    )}
-                                </td>
-
-                                <td class="${
-                                    tradeable
-                                        ? "yes"
-                                        : "no"
-                                }">
-
-                                    ${
-                                        tradeable
-                                            ? "TRADE"
-                                            : "WAIT"
-                                    }
-
-                                </td>
-
-                            </tr>
-                        `;
-
-                    }
-                )
-                .join("");
-
-    }
-
-
-    function renderStrategies(signals) {
-
-        const tbody =
-            document.getElementById(
-                "strategies"
-            );
-
-
-        const rows =
-            Object.entries(
-                signals
-            );
-
-
-        if (!rows.length) {
-
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="9"
-                        class="empty">
-                        Waiting for strategy data...
-                    </td>
-                </tr>
-            `;
-
-            return;
-
-        }
-
-
-        tbody.innerHTML =
-            rows
-                .map(
-                    ([symbol, signal]) => {
-
-                        const s =
-                            signal.strategies
-                            || {};
-
-
-                        return `
-                            <tr>
-
-                                <td>
-                                    <strong>
-                                        ${esc(symbol)}
-                                    </strong>
-                                </td>
-
-                                <td>
-                                    ${esc(
-                                        signal.regime
-                                        || "mixed"
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        s.momentum,
-                                        0
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        s.trend,
-                                        0
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        s.mean_reversion,
-                                        0
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        s.breakout,
-                                        0
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        s.vwap,
-                                        0
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        s.macd,
-                                        0
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${number(
-                                        s.volume,
-                                        0
-                                    )}
-                                </td>
-
-                            </tr>
-                        `;
-
-                    }
-                )
-                .join("");
-
-    }
-
-
-    function renderPositions(positions) {
-
-        const tbody =
-            document.getElementById(
-                "positions"
-            );
-
-
-        if (!positions.length) {
-
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6"
-                        class="empty">
-                        No open positions
-                    </td>
-                </tr>
-            `;
-
-            return;
-
-        }
-
-
-        tbody.innerHTML =
-            positions
-                .map(
-                    position => `
-
-                        <tr>
-
-                            <td>
-                                <strong>
-                                    ${esc(
-                                        position.symbol
-                                    )}
-                                </strong>
-                            </td>
-
-                            <td>
-                                ${money(
-                                    position.entry_price
-                                )}
-                            </td>
-
-                            <td>
-                                ${number(
-                                    position.amount,
-                                    6
-                                )}
-                            </td>
-
-                            <td>
-                                ${money(
-                                    position.notional
-                                )}
-                            </td>
-
-                            <td>
-                                ${money(
-                                    position.stop_price
-                                )}
-                            </td>
-
-                            <td>
-                                ${money(
-                                    position.target_price
-                                )}
-                            </td>
-
-                        </tr>
-
-                    `
-                )
-                .join("");
-
-    }
-
-
-    function showError(message) {
-
-        const box =
-            document.getElementById(
-                "errorBox"
-            );
-
-        box.textContent =
-            message;
-
-        box.classList.add(
-            "show"
+        alert(
+            "Unable to start bot: " +
+            error.message
         );
 
     }
+}
 
 
-    function hideError() {
+async function stopBot() {
 
-        document
-            .getElementById(
-                "errorBox"
-            )
-            .classList
-            .remove("show");
+    try {
 
-    }
+        const response =
+            await fetch("/api/stop", {
+                method: "POST"
+            });
 
+        const data =
+            await response.json();
 
-    async function startBot() {
+        console.log(data);
 
-        try {
+        await refresh();
 
-            const response =
-                await fetch(
-                    "/api/start",
-                    {
-                        method: "POST"
-                    }
-                );
+    } catch (error) {
 
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.error ||
-                    "Unable to start bot"
-                );
-
-            }
-
-
-            if (data.error) {
-
-                showError(
-                    data.error
-                );
-
-            }
-
-
-            await refresh();
-
-        }
-
-        catch (error) {
-
-            showError(
-                error.message
-            );
-
-        }
+        alert(
+            "Unable to stop bot: " +
+            error.message
+        );
 
     }
+}
 
 
-    async function stopBot() {
+async function runScan() {
 
-        try {
+    try {
 
-            await fetch(
-                "/api/stop",
-                {
-                    method: "POST"
-                }
-            );
+        $("signalInfo").textContent =
+            "Running full-market scan...";
 
-            await refresh();
+        const response =
+            await fetch("/api/scan", {
+                method: "POST"
+            });
 
-        }
+        const data =
+            await response.json();
 
-        catch (error) {
+        console.log(data);
 
-            showError(
-                error.message
-            );
+        await refresh();
 
-        }
+    } catch (error) {
 
-    }
-
-
-    async function runScan() {
-
-        try {
-
-            const button =
-                event?.target;
-
-            if (button) {
-
-                button.disabled =
-                    true;
-
-                button.textContent =
-                    "Scanning...";
-
-            }
-
-
-            const response =
-                await fetch(
-                    "/api/scan",
-                    {
-                        method: "POST"
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.error ||
-                    "Scan failed"
-                );
-
-            }
-
-
-            await refresh();
-
-        }
-
-        catch (error) {
-
-            showError(
-                error.message
-            );
-
-        }
-
-        finally {
-
-            if (button) {
-
-                button.disabled =
-                    false;
-
-                button.textContent =
-                    "Run Scan";
-
-            }
-
-        }
+        alert(
+            "Scan failed: " +
+            error.message
+        );
 
     }
+}
 
 
-    /*
-     * INITIAL LOAD
-     */
+/* =========================
+   RESPONSIVE CHART
+========================= */
 
-    refresh();
+window.addEventListener(
+    "resize",
+    () => refreshPerformance().catch(console.error)
+);
 
 
-    /*
-     * AUTO REFRESH
-     *
-     * This is intentionally inside
-     * the <script> tag.
-     */
+/* =========================
+   START
+========================= */
 
-    setInterval(
-        refresh,
-        5000
-    );
+refresh();
+
+setInterval(
+    refresh,
+    5000
+);
 
 </script>
 
