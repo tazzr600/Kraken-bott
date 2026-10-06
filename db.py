@@ -2,20 +2,38 @@ import os
 import sqlite3
 import time
 
-DB = os.getenv("DB_PATH", "jev_crypto.sqlite3")
+
+DB = os.getenv(
+    "DB_PATH",
+    "jev_crypto.sqlite3",
+)
 
 
 def db():
-    conn = sqlite3.connect(DB, timeout=30)
-    conn.row_factory = sqlite3.Row
-    return conn
 
+    connection = sqlite3.connect(
+        DB,
+        timeout=30,
+    )
+
+    connection.row_factory = (
+        sqlite3.Row
+    )
+
+    return connection
+
+
+# ============================================================
+# INITIALIZE
+# ============================================================
 
 def init_db():
-    conn = db()
+
+    connection = db()
 
     try:
-        conn.execute("""
+
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS trades (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ts REAL NOT NULL,
@@ -31,7 +49,7 @@ def init_db():
             )
         """)
 
-        conn.execute("""
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS positions (
                 symbol TEXT PRIMARY KEY,
                 entry_price REAL,
@@ -43,41 +61,74 @@ def init_db():
             )
         """)
 
-        conn.execute("""
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS risk_state (
                 key TEXT PRIMARY KEY,
                 value TEXT
             )
         """)
 
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS equity_snapshots (
+                ts REAL PRIMARY KEY,
+                equity REAL,
+                balance REAL,
+                invested REAL,
+                realized_pnl REAL,
+                unrealized_pnl REAL,
+                return_pct REAL
+            )
+        """)
+
         defaults = {
-            "paper_balance": "1000",
-            "paper_start_balance": "1000",
-            "paper_invested": "0",
-            "paper_realized_pnl": "0",
+
+            "paper_balance":
+                "1000",
+
+            "paper_start_balance":
+                "1000",
+
+            "paper_invested":
+                "0",
+
+            "paper_realized_pnl":
+                "0",
+
         }
 
         for key, value in defaults.items():
-            conn.execute(
+
+            connection.execute(
                 """
-                INSERT OR IGNORE INTO risk_state
+                INSERT OR IGNORE INTO
+                risk_state
                 (key, value)
                 VALUES (?, ?)
                 """,
-                (key, value),
+                (
+                    key,
+                    value,
+                ),
             )
 
-        conn.commit()
+        connection.commit()
 
     finally:
-        conn.close()
 
+        connection.close()
+
+
+# ============================================================
+# TRADES
+# ============================================================
 
 def add_trade(data):
-    conn = db()
+
+    connection = db()
 
     try:
-        conn.execute(
+
+        connection.execute(
             """
             INSERT INTO trades (
                 ts,
@@ -91,7 +142,10 @@ def add_trade(data):
                 mode,
                 reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (
+                ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?
+            )
             """,
             (
                 time.time(),
@@ -107,17 +161,24 @@ def add_trade(data):
             ),
         )
 
-        conn.commit()
+        connection.commit()
 
     finally:
-        conn.close()
 
+        connection.close()
+
+
+# ============================================================
+# POSITIONS
+# ============================================================
 
 def set_position(data):
-    conn = db()
+
+    connection = db()
 
     try:
-        conn.execute(
+
+        connection.execute(
             """
             INSERT OR REPLACE INTO positions (
                 symbol,
@@ -141,76 +202,97 @@ def set_position(data):
             ),
         )
 
-        conn.commit()
+        connection.commit()
 
     finally:
-        conn.close()
+
+        connection.close()
 
 
 def get_positions():
-    conn = db()
+
+    connection = db()
 
     try:
-        rows = conn.execute(
+
+        rows = connection.execute(
             "SELECT * FROM positions"
         ).fetchall()
 
-        return [dict(row) for row in rows]
+        return [
+            dict(row)
+            for row in rows
+        ]
 
     finally:
-        conn.close()
+
+        connection.close()
 
 
 def delete_position(symbol):
-    conn = db()
+
+    connection = db()
 
     try:
-        conn.execute(
-            "DELETE FROM positions WHERE symbol=?",
+
+        connection.execute(
+            """
+            DELETE FROM positions
+            WHERE symbol=?
+            """,
             (symbol,),
         )
 
-        conn.commit()
+        connection.commit()
 
     finally:
-        conn.close()
+
+        connection.close()
 
 
-def set_risk(key, value):
-    conn = db()
+# ============================================================
+# RISK
+# ============================================================
+
+def set_risk(
+    key,
+    value,
+):
+
+    connection = db()
 
     try:
-        conn.execute(
+
+        connection.execute(
             """
-            INSERT OR REPLACE INTO risk_state
+            INSERT OR REPLACE INTO
+            risk_state
             (key, value)
             VALUES (?, ?)
             """,
-            (key, str(value)),
+            (
+                key,
+                str(value),
+            ),
         )
 
-        conn.commit()
+        connection.commit()
 
     finally:
-        conn.close()
+
+        connection.close()
 
 
-def get_risk(key, default=None):
-    conn = db()
+def get_risk(
+    key,
+    default=None,
+):
+
+    connection = db()
 
     try:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS risk_state (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            )
-            """
-        )
 
-        conn.commit()
-
-        row = conn.execute(
+        row = connection.execute(
             """
             SELECT value
             FROM risk_state
@@ -220,23 +302,35 @@ def get_risk(key, default=None):
         ).fetchone()
 
         if row is None:
+
             return default
 
         return row["value"]
 
     finally:
-        conn.close()
 
+        connection.close()
+
+
+# ============================================================
+# STATS
+# ============================================================
 
 def stats():
-    conn = db()
+
+    connection = db()
 
     try:
-        row = conn.execute(
+
+        row = connection.execute(
             """
             SELECT
-                COALESCE(SUM(pnl), 0) AS pnl,
-                COUNT(*) AS trades,
+                COALESCE(SUM(pnl), 0)
+                AS pnl,
+
+                COUNT(*)
+                AS trades,
+
                 COALESCE(
                     SUM(
                         CASE
@@ -246,45 +340,61 @@ def stats():
                         END
                     ),
                     0
-                ) AS wins
+                )
+                AS wins
+
             FROM trades
+
             WHERE status='CLOSED'
             """
         ).fetchone()
 
-        today = conn.execute(
+        day = connection.execute(
             """
             SELECT
-                COALESCE(SUM(pnl), 0) AS pnl,
-                COUNT(*) AS n
+                COALESCE(SUM(pnl), 0)
+                AS pnl,
+
+                COUNT(*)
+                AS n
+
             FROM trades
+
             WHERE status='CLOSED'
+
             AND ts >= ?
             """,
-            (time.time() - 86400,),
+            (
+                time.time() - 86400,
+            ),
         ).fetchone()
 
-        recent = conn.execute(
+        recent = connection.execute(
             """
             SELECT pnl
             FROM trades
             WHERE status='CLOSED'
             ORDER BY ts DESC
-            LIMIT 10
+            LIMIT 20
             """
         ).fetchall()
 
-        open_positions = conn.execute(
+        invested_row = connection.execute(
             """
             SELECT
-                COALESCE(SUM(notional), 0)
+                COALESCE(
+                    SUM(notional),
+                    0
+                )
                 AS invested
+
             FROM positions
             """
         ).fetchone()
 
     finally:
-        conn.close()
+
+        connection.close()
 
     total_trades = int(
         row["trades"] or 0
@@ -297,11 +407,15 @@ def stats():
     consecutive_losses = 0
 
     for trade in recent:
+
         if float(
             trade["pnl"] or 0
         ) < 0:
+
             consecutive_losses += 1
+
         else:
+
             break
 
     start_balance = float(
@@ -326,7 +440,10 @@ def stats():
     )
 
     invested = float(
-        open_positions["invested"] or 0
+        invested_row[
+            "invested"
+        ]
+        or 0
     )
 
     equity = (
@@ -335,46 +452,222 @@ def stats():
     )
 
     return {
-        "pnl": float(
-            row["pnl"] or 0
-        ),
-        "trades": total_trades,
-        "wins": wins,
-        "losses": total_trades - wins,
-        "win_rate": (
-            wins / total_trades
-            if total_trades
-            else 0
-        ),
-        "last_24h_pnl": float(
-            today["pnl"] or 0
-        ),
-        "trades_24h": int(
-            today["n"] or 0
-        ),
+
+        "pnl":
+            float(
+                row["pnl"] or 0
+            ),
+
+        "trades":
+            total_trades,
+
+        "wins":
+            wins,
+
+        "losses":
+            total_trades - wins,
+
+        "win_rate":
+            (
+                wins / total_trades
+                if total_trades
+                else 0
+            ),
+
+        "last_24h_pnl":
+            float(
+                day["pnl"] or 0
+            ),
+
+        "trades_24h":
+            int(
+                day["n"] or 0
+            ),
+
         "consecutive_losses":
             consecutive_losses,
+
         "paper_start_balance":
             start_balance,
+
         "paper_balance":
             paper_balance,
+
         "paper_invested":
             invested,
+
         "paper_equity":
             equity,
+
         "realized_pnl":
             realized_pnl,
-        "return_pct": (
+
+        "return_pct":
             (
-                equity - start_balance
-            ) / start_balance
-            if start_balance
-            else 0
-        ),
+                (
+                    equity
+                    - start_balance
+                )
+                / start_balance
+                if start_balance
+                else 0
+            ),
+
     }
 
 
-init_db()
+# ============================================================
+# EQUITY SNAPSHOTS
+# ============================================================
 
+def record_equity_snapshot(
+    prices=None,
+):
+
+    prices = prices or {}
+
+    positions = get_positions()
+
+    unrealized = 0.0
+
+    for position in positions:
+
+        symbol = position[
+            "symbol"
+        ]
+
+        price = float(
+            prices.get(
+                symbol,
+                position[
+                    "entry_price"
+                ],
+            )
+        )
+
+        unrealized += (
+            price
+            -
+            float(
+                position[
+                    "entry_price"
+                ]
+            )
+        ) * float(
+            position["amount"]
+        )
+
+    current = stats()
+
+    balance = float(
+        current["paper_balance"]
+    )
+
+    invested = float(
+        current["paper_invested"]
+    )
+
+    equity = (
+        balance
+        + invested
+        + unrealized
+    )
+
+    start = float(
+        current[
+            "paper_start_balance"
+        ]
+    )
+
+    return_pct = (
+        (
+            equity - start
+        )
+        / start
+        if start
+        else 0
+    )
+
+    connection = db()
+
+    try:
+
+        connection.execute(
+            """
+            INSERT INTO
+            equity_snapshots
+            (
+                ts,
+                equity,
+                balance,
+                invested,
+                realized_pnl,
+                unrealized_pnl,
+                return_pct
+            )
+            VALUES (
+                ?, ?, ?, ?,
+                ?, ?, ?
+            )
+            """,
+            (
+                time.time(),
+                equity,
+                balance,
+                invested,
+                float(
+                    current[
+                        "realized_pnl"
+                    ]
+                ),
+                unrealized,
+                return_pct,
+            ),
+        )
+
+        connection.commit()
+
+    finally:
+
+        connection.close()
+
+
+def equity_history(
+    limit=500,
+):
+
+    connection = db()
+
+    try:
+
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM equity_snapshots
+            ORDER BY ts DESC
+            LIMIT ?
+            """,
+            (
+                int(limit),
+            ),
+        ).fetchall()
+
+        rows = list(
+            reversed(rows)
+        )
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+
+        connection.close()
+
+
+# ============================================================
+# INITIALIZE
+# ============================================================
 
 init_db()
