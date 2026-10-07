@@ -2209,15 +2209,20 @@ class KrakenBot:
         # EMERGENCY STOP
         # =====================================================
 
-        stop_price = (
-            entry
-            *
-            (
-                1
-                -
-                settings.stop_loss_pct
-            )
+        # Volatility-aware exits. The configured values are the floor;
+        # unusually strong setups get room for their expected move without
+        # allowing an unlimited stop/target.
+        expected_move = max(0.0, self._float(best.get("expected_move", 0.0)))
+        dynamic_stop_pct = min(
+            0.015,
+            max(settings.stop_loss_pct, expected_move * 0.30),
         )
+        dynamic_target_pct = min(
+            0.050,
+            max(settings.take_profit_pct, expected_move * 0.65),
+        )
+
+        stop_price = entry * (1.0 - dynamic_stop_pct)
 
         # =====================================================
         # PAPER BALANCE CHECK BEFORE POSITION
@@ -2260,9 +2265,8 @@ class KrakenBot:
             "stop_price": stop_price,
 
             "target_price": (
-                entry
-                * (1.0 + settings.take_profit_pct)
-                if settings.take_profit_pct > 0
+                entry * (1.0 + dynamic_target_pct)
+                if dynamic_target_pct > 0
                 else 0
             ),
         })
