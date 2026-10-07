@@ -2029,6 +2029,97 @@ class KrakenBot:
         )
 
     # =========================================================
+    # PAPER ADAPTIVE SIGNAL
+    # =========================================================
+
+    def _best_paper_adaptive_signal(self):
+        """
+        PAPER-only fallback used when the strict entry gate
+        produces no candidate.
+
+        It still requires:
+        - LONG direction
+        - positive execution-adjusted edge
+        - minimum model probability
+        - minimum validation accuracy
+        - positive combined directional edge
+        - minimum reward/risk
+
+        It does not relax LIVE trading rules.
+        """
+
+        if not settings.paper_adaptive_entry:
+            return None
+
+        if not self.kraken.is_paper:
+            return None
+
+        candidates = []
+
+        for signal in self.signals:
+            probability = self._float(
+                signal.get("probability_up", 0)
+            )
+            accuracy = self._float(
+                signal.get("accuracy", 0)
+            )
+            execution_net = self._float(
+                signal.get("execution_net_move", 0)
+            )
+            combined_edge = self._float(
+                signal.get("combined_edge", 0)
+            )
+            confidence = self._float(
+                signal.get("confidence", 0)
+            )
+            reward_risk = self._float(
+                signal.get("reward_risk", 0)
+            )
+            expected_move = self._float(
+                signal.get("expected_move", 0)
+            )
+
+            if str(signal.get("direction", "")).upper() != "LONG":
+                continue
+
+            if probability < settings.paper_min_probability:
+                continue
+
+            if accuracy < settings.paper_min_training_accuracy:
+                continue
+
+            if execution_net <= 0:
+                continue
+
+            if combined_edge <= 0:
+                continue
+
+            if confidence < 0.08:
+                continue
+
+            if expected_move < settings.min_expected_move:
+                continue
+
+            if reward_risk < settings.paper_min_reward_risk:
+                continue
+
+            candidates.append(signal)
+
+        if not candidates:
+            return None
+
+        candidates.sort(
+            key=lambda x: (
+                self._float(x.get("score", 0)),
+                self._float(x.get("combined_edge", 0)),
+                self._float(x.get("execution_net_move", 0)),
+            ),
+            reverse=True,
+        )
+
+        return candidates[0]
+
+    # =========================================================
     # ENTER BEST TRADE
     # =========================================================
 
@@ -2061,6 +2152,22 @@ class KrakenBot:
         # =====================================================
 
         best = self._best_tradeable_signal()
+
+        # PAPER can use an adaptive entry profile so we can
+        # validate the execution/risk loop instead of waiting
+        # indefinitely for every secondary heuristic to align.
+        # LIVE trading always uses the strict signal gate.
+        if best is None and self.kraken.is_paper:
+            best = self._best_paper_adaptive_signal()
+
+            if best is not None:
+                print(
+                    "PAPER ADAPTIVE ENTRY: "
+                    f"{best['symbol']} "
+                    f"prob={best['probability_up']:.3f} "
+                    f"net={best['execution_net_move']:.4f} "
+                    f"RR={best['reward_risk']:.2f}"
+                )
 
         if best is None:
 
