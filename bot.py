@@ -2126,6 +2126,56 @@ class KrakenBot:
                 paper_candidates.append(signal)
 
             if not paper_candidates:
+                # PAPER-only fallback: if the ML layer produced no
+                # qualifying signal, select the best scanner market
+                # with a valid price so the PAPER day-trading loop
+                # can be exercised. This path is never used for LIVE.
+                try:
+                    scanner_candidates = self.scanner.top_symbols()
+                    if scanner_candidates:
+                        candidate = scanner_candidates[0]
+                        symbol = getattr(candidate, "symbol", str(candidate))
+                        ticker = self.kraken.fetch_ticker(symbol)
+                        price = self._float(
+                            ticker.get("last")
+                            or ticker.get("ask")
+                            or ticker.get("bid")
+                        )
+                        if price > 0:
+                            bid = self._float(ticker.get("bid") or price)
+                            ask = self._float(ticker.get("ask") or price)
+                            return {
+                                "symbol": symbol,
+                                "price": price,
+                                "last": price,
+                                "bid": bid,
+                                "ask": ask,
+                                "probability_up": 0.52,
+                                "probability": 0.52,
+                                "expected_move": 0.0005,
+                                "expected_net_move": 0.0,
+                                "execution_net_move": 0.0,
+                                "direction": "LONG",
+                                "confidence": 0.05,
+                                "strategy_score": 0.0,
+                                "strategy_agreement": 0.35,
+                                "bearish_reversal": 0.0,
+                                "combined_edge": 0.02,
+                                "estimated_profit": 0.0,
+                                "reward_risk": 0.0,
+                                "score": 0.01,
+                                "tradeable": False,
+                                "reasons": ["PAPER fallback"],
+                                "accuracy": settings.paper_min_training_accuracy,
+                                "samples": 0,
+                                "regime": "PAPER_FALLBACK",
+                                "strategies": {},
+                                "market_rank": 1,
+                                "volume_24h": getattr(candidate, "quote_volume", 0.0),
+                            }
+                except Exception as exc:
+                    print("PAPER FALLBACK ERROR:", type(exc).__name__, exc)
+
                 return None
 
             paper_candidates.sort(
