@@ -1,71 +1,82 @@
-# JEV Crypto Day Trader
+# Kraken Day Trader
 
-JEV is a Kraken spot-crypto day-trading prototype with:
+A PAPER-first Kraken spot day-trading bot with:
 
-- time-series machine learning (HistGradientBoosting)
-- BTC/ETH/SOL scanning
-- 5-minute candles
-- probability + expected-move scoring
-- one best trade selection
-- stop loss / take profit / max hold time
-- daily loss and trade-count limits
-- SQLite trade journal
-- FastAPI dashboard
-- Railway deployment support
+- Kraken market discovery and liquidity filtering
+- 5-minute OHLCV analysis
+- ensemble machine-learning signal generation
+- technical strategy scoring and confirmation
+- one-position-at-a-time execution
+- emergency stop-loss and AI-controlled exits
+- calendar-day realized P&L risk limits
+- calendar-day completed-trade limits
+- consecutive-loss circuit breaker
+- SQLite trade journal and paper account
+- FastAPI dashboard/API
+- Railway/Docker deployment
+- automated syntax and regression verification
 
-## Important
+## Safety defaults
 
-This is not a guaranteed-profit system. The ML model is a statistical signal generator, not a guarantee of future returns.
+The project is intentionally PAPER-first:
 
-The project defaults to:
+- `LIVE_TRADING=false`
+- `DRY_RUN=true`
+- runtime mode always starts as `PAPER`
+- LIVE orders require configuration, authentication, and explicit runtime confirmation
 
-- LIVE_TRADING=false
-- DRY_RUN=true
+PAPER mode does not require private Kraken API credentials. Public market data is enough to run the scanner and simulated trading.
 
-Do not enable live trading until the paper results have been validated.
+**This is not a guaranteed-profit system.** Machine learning is a statistical signal generator, not a prediction guarantee.
 
-## Railway variables
+## Setup
 
-Add:
+Copy `.env.example` to `.env` for local use. Keep real API credentials out of Git.
 
-KRAKEN_API_KEY
-KRAKEN_API_SECRET
+For PAPER mode, API credentials are optional.
 
-Then add the risk/config variables from `.env.example`.
+For Railway, configure environment variables in Railway's secret/environment settings rather than committing them.
 
-Keep:
+If LIVE trading is ever enabled, use a Kraken API key with only the permissions actually required for trading/read access. Never enable withdrawal permissions.
 
-LIVE_TRADING=false
-DRY_RUN=true
-AUTONOMOUS_MODE=true
-
-## Kraken API permissions
-
-The API key should be limited to trading/read permissions.
-
-Do NOT enable withdrawal permissions.
-
-## Local run
+## Run
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 Open `/`.
 
-## How the model works
+Health endpoint: `/health`
 
-The model uses rolling technical features:
+## Verification
 
-- returns
-- EMA distance
-- RSI
-- ATR/range
-- volume z-score
-- trend
-- volatility
+```bash
+python -m compileall -q .
+python -m unittest discover -s tests -v
+```
 
-It trains on older candles and tests on a later time segment to reduce look-ahead leakage. The live scanner then ranks symbols by estimated upside probability and expected move after a cost/slippage buffer.
+GitHub Actions runs both checks automatically on pushes to `main` and pull requests.
 
-This is intentionally conservative: the highest-ranked market is only eligible if the model clears the accuracy, probability, expected-move and cost filters.
+## Risk accounting
+
+Daily loss and daily trade limits use completed SELL trades from the current local calendar day. Rolling 24-hour statistics remain available for dashboard compatibility but are not used for the daily risk gate.
+
+After every completed SELL, the bot synchronizes the persisted trade count, last-trade timestamp, and consecutive-loss state.
+
+## Scanner status
+
+The scanner status exposes:
+
+- markets discovered
+- maximum symbols sent to ML
+- allowed quote currencies
+- liquidity/spread configuration
+- last refresh and scan errors
+
+## Deployment
+
+Railway uses the included Dockerfile and `railway.toml`. The HTTP health check is `/health`.
+
+Keep `LIVE_TRADING=false` and `DRY_RUN=true` until paper performance has been independently validated.
