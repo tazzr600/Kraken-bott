@@ -987,6 +987,57 @@ class KrakenTrader:
         return value
 
     # ============================================================
+    # ORDER FEE NORMALIZATION
+    # ============================================================
+
+    def _order_fee_quote(
+        self,
+        order: Dict[str, Any],
+        symbol: str,
+        average_price: float,
+    ) -> float:
+        """Return actual exchange-reported fees converted to quote currency."""
+        if not order:
+            return 0.0
+
+        try:
+            market = self.exchange.market(symbol)
+            quote = str(market.get("quote") or "").upper()
+        except Exception:
+            quote = ""
+
+        raw_fees = order.get("fees")
+        if raw_fees is None:
+            raw_fee = order.get("fee")
+            raw_fees = [raw_fee] if isinstance(raw_fee, dict) else []
+        elif isinstance(raw_fees, dict):
+            raw_fees = [raw_fees]
+
+        total = 0.0
+        for fee in raw_fees or []:
+            if not isinstance(fee, dict):
+                continue
+            try:
+                cost = float(fee.get("cost") or 0.0)
+            except Exception:
+                cost = 0.0
+            if cost <= 0:
+                continue
+            currency = str(fee.get("currency") or quote).upper()
+            if currency == quote or not currency:
+                total += cost
+            else:
+                # Kraken can report fees in the base currency. Convert the
+                # reported fee at the actual average fill price so realized
+                # P&L remains quote-currency based.
+                try:
+                    if average_price > 0:
+                        total += cost * average_price
+                except Exception:
+                    continue
+        return max(0.0, total)
+
+    # ============================================================
     # MARKET BUY
     # ============================================================
 
