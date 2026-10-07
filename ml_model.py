@@ -30,6 +30,8 @@ class ModelState:
 
     accuracy: float = 0.0
 
+    positive_precision: float = 0.0
+
     samples: int = 0
 
     trained_at: float = 0.0
@@ -1952,6 +1954,7 @@ def train_model(
         feature_columns=feature_columns,
 
         accuracy=accuracy,
+        positive_precision=positive_precision,
 
         samples=len(training),
 
@@ -2353,6 +2356,9 @@ def predict(
 
         "model_accuracy":
             state.accuracy,
+
+        "positive_precision":
+            getattr(state, "positive_precision", 0.0),
 
         "samples":
             state.samples,
