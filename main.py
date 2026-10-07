@@ -999,42 +999,16 @@ def start_bot_thread() -> tuple[bool, str]:
             )
 
             # ------------------------------------------------
-            # TEST KRAKEN
+            # START
             # ------------------------------------------------
-
-            connection = None
-
-            # Public Kraken connectivity can fail transiently.
-            # Retry before refusing to start PAPER mode.
-            for attempt in range(3):
-                connection = test_kraken_connection(bot)
-
-                logger.info(
-                    "Kraken startup status (attempt %s/3): %s",
-                    attempt + 1,
-                    connection,
-                )
-
-                if connection.get("connected", False):
-                    break
-
-                if attempt < 2:
-                    time.sleep(1.0)
-
-            if not connection or not connection.get(
-                "connected",
-                False,
-            ):
-                detail = (
-                    connection.get("error")
-                    or connection.get("connection_error")
-                    or "Unknown Kraken public connection error."
-                )
-
-                return (
-                    False,
-                    f"Kraken public market-data connection failed: {detail}",
-                )
+            #
+            # PAPER mode must start independently of a one-time
+            # Kraken connectivity check. Public API/DNS/rate-limit
+            # issues can be transient, and bot.run() already handles
+            # per-cycle API failures without killing the worker.
+            #
+            # Do not block the Start button on load_markets().
+            # The scanner will retry on its normal cycle.
 
             # PAPER mode intentionally does not require private
             # API authentication. LIVE remains gated separately.
