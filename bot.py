@@ -1660,7 +1660,7 @@ class KrakenBot:
             # PAPER COST
             # =================================================
 
-            if settings.dry_run:
+            if self.kraken.is_paper:
 
                 exit_cost = (
                     gross_exit_proceeds
@@ -1719,7 +1719,7 @@ class KrakenBot:
 
                 "mode": (
                     "DRY_RUN"
-                    if settings.dry_run
+                    if self.kraken.is_paper
                     else "LIVE"
                 ),
 
@@ -1733,7 +1733,7 @@ class KrakenBot:
             # PAPER ACCOUNT
             # =================================================
 
-            if settings.dry_run:
+            if self.kraken.is_paper:
 
                 balance = self._float(
                     get_risk(
@@ -1917,6 +1917,59 @@ class KrakenBot:
             )
 
         # =====================================================
+        # TAKE-PROFIT BACKSTOP
+        # =====================================================
+        #
+        # AI remains the primary exit engine, but a configured
+        # take-profit is a deterministic safety backstop.
+
+        entry_price = self._float(
+            position.get("entry_price", 0)
+        )
+
+        if (
+            entry_price > 0
+            and settings.take_profit_pct > 0
+            and price >= (
+                entry_price
+                * (1.0 + settings.take_profit_pct)
+            )
+        ):
+            result = await self.exit_position(
+                position,
+                "take-profit backstop",
+                apply_cooldown=False,
+            )
+
+            return bool(result.get("ok"))
+
+        # =====================================================
+        # MAX-HOLD BACKSTOP
+        # =====================================================
+
+        opened_ts = self._float(
+            position.get("opened_ts", 0)
+        )
+
+        max_hold_seconds = (
+            max(0, int(settings.max_hold_minutes))
+            * 60
+        )
+
+        if (
+            opened_ts > 0
+            and max_hold_seconds > 0
+            and time.time() - opened_ts >= max_hold_seconds
+        ):
+            result = await self.exit_position(
+                position,
+                "maximum hold-time backstop",
+                apply_cooldown=True,
+            )
+
+            return bool(result.get("ok"))
+
+        # =====================================================
         # AI POSITION ANALYSIS
         # =====================================================
 
@@ -2028,7 +2081,7 @@ class KrakenBot:
         # CAPITAL
         # =====================================================
 
-        if settings.dry_run:
+        if self.kraken.is_paper:
 
             balance = self._float(
                 get_risk(
@@ -2146,7 +2199,7 @@ class KrakenBot:
         # PAPER ENTRY COST
         # =====================================================
 
-        if settings.dry_run:
+        if self.kraken.is_paper:
 
             entry_fee = (
                 notional
@@ -2183,7 +2236,7 @@ class KrakenBot:
         # PAPER BALANCE CHECK BEFORE POSITION
         # =====================================================
 
-        if settings.dry_run:
+        if self.kraken.is_paper:
 
             balance = self._float(
                 get_risk(
@@ -2219,16 +2272,19 @@ class KrakenBot:
 
             "stop_price": stop_price,
 
-            # Compatibility field only.
-            # No fixed take-profit is used.
-            "target_price": 0,
+            "target_price": (
+                entry
+                * (1.0 + settings.take_profit_pct)
+                if settings.take_profit_pct > 0
+                else 0
+            ),
         })
 
         # =====================================================
         # PAPER CASH
         # =====================================================
 
-        if settings.dry_run:
+        if self.kraken.is_paper:
 
             invested = self._float(
                 get_risk(
@@ -2274,7 +2330,7 @@ class KrakenBot:
 
             "mode": (
                 "DRY_RUN"
-                if settings.dry_run
+                if self.kraken.is_paper
                 else "LIVE"
             ),
 
@@ -2334,8 +2390,14 @@ class KrakenBot:
         print(
             f"STOP: {stop_price:.8f}"
         )
-        print("TAKE PROFIT: AI CONTROLLED")
-        print("MAX HOLD: DISABLED")
+        print(
+            f"TAKE PROFIT BACKSTOP: "
+            f"{settings.take_profit_pct * 100:.2f}%"
+        )
+        print(
+            f"MAX HOLD BACKSTOP: "
+            f"{settings.max_hold_minutes} minutes"
+        )
         print("MARKET SCANNING: CONTINUES")
         print("ROTATION: ENABLED")
         print("=" * 60)
@@ -2409,7 +2471,7 @@ class KrakenBot:
             "AI EDGE ENGINE ONLINE"
         )
         print(
-            f"PAPER MODE: {settings.dry_run}"
+            f"PAPER MODE: {self.kraken.is_paper}"
         )
         print(
             "ONE POSITION AT A TIME: ENABLED"
