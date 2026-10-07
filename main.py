@@ -35,7 +35,7 @@ logger = logging.getLogger("kraken-day-trader")
 
 app = FastAPI(
     title="Kraken Day Trader",
-    version="3.1.0",
+    version="4.0.0",
 )
 
 
@@ -2290,9 +2290,15 @@ async def startup_event():
     )
 
     logger.info(
-        "KRAKEN DAY TRADER STARTING"
+        "KRAKEN DAY TRADER STARTING | AUTONOMOUS PAPER ENGINE v4.0"
     )
 
+    logger.info(
+        "Autonomous: %s | PAPER adaptive validation: %s | Max hold: %sm",
+        settings.autonomous,
+        settings.paper_adaptive_entry,
+        settings.max_hold_minutes,
+    )
     logger.info(
         "===================================================="
     )
