@@ -52,7 +52,7 @@ class KrakenBot:
     BEARISH_REVERSAL_EXIT = 0.65
 
     # Minimum positive score required for a trade.
-    MIN_REENTRY_EDGE = 0.0
+    MIN_REENTRY_EDGE = 0.05
 
     # =========================================================
     # INIT
@@ -870,6 +870,8 @@ class KrakenBot:
             and
             accuracy
             >= settings.min_training_accuracy
+            and
+            samples >= 200
             and
             score > self.MIN_REENTRY_EDGE
         )
@@ -1998,7 +2000,7 @@ class KrakenBot:
         # validate the execution/risk loop instead of waiting
         # indefinitely for every secondary heuristic to align.
         # LIVE trading always uses the strict signal gate.
-        if best is None and self.kraken.is_paper:
+        if best is None and self.kraken.is_paper and settings.paper_adaptive_entry:
             best = self._best_paper_adaptive_signal()
             paper_adaptive_used = best is not None
 
