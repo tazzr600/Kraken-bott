@@ -72,7 +72,7 @@ class Settings:
 
     timeframe: str = clean_env(
         "TIMEFRAME",
-        "5m"
+        "1m"
     )
 
     candles: int = int(
@@ -85,7 +85,7 @@ class Settings:
     scan_seconds: int = int(
         clean_env(
             "SCAN_SECONDS",
-            "30"
+            "10"
         )
     )
 
@@ -107,7 +107,7 @@ class Settings:
     max_scan_symbols: int = int(
         clean_env(
             "MAX_SCAN_SYMBOLS",
-            "20"
+            "30"
         )
     )
 
@@ -153,28 +153,28 @@ class Settings:
     forecast_bars: int = int(
         clean_env(
             "FORECAST_BARS",
-            "3"
+            "2"
         )
     )
 
     min_probability: float = float(
         clean_env(
             "MIN_PROBABILITY",
-            "0.60"
+            "0.57"
         )
     )
 
     min_expected_move: float = float(
         clean_env(
             "MIN_EXPECTED_MOVE",
-            "0.004"
+            "0.002"
         )
     )
 
     min_training_accuracy: float = float(
         clean_env(
             "MIN_TRAINING_ACCURACY",
-            "0.52"
+            "0.50"
         )
     )
 
@@ -210,14 +210,14 @@ class Settings:
     take_profit_pct: float = float(
         clean_env(
             "TAKE_PROFIT_PCT",
-            "0.012"
+            "0.008"
         )
     )
 
     max_hold_minutes: int = int(
         clean_env(
             "MAX_HOLD_MINUTES",
-            "90"
+            "30"
         )
     )
 
@@ -231,7 +231,7 @@ class Settings:
     max_trades_per_day: int = int(
         clean_env(
             "MAX_TRADES_PER_DAY",
-            "10"
+            "20"
         )
     )
 
@@ -245,7 +245,7 @@ class Settings:
     cooldown_minutes: int = int(
         clean_env(
             "COOLDOWN_MINUTES",
-            "15"
+            "2"
         )
     )
 
