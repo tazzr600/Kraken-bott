@@ -3,7 +3,7 @@
 A PAPER-first Kraken spot day-trading bot with:
 
 - Kraken market discovery and liquidity filtering
-- 5-minute OHLCV analysis
+- 1-minute OHLCV analysis with short-horizon forecasting
 - ensemble machine-learning signal generation
 - technical strategy scoring and confirmation
 - one-position-at-a-time execution
@@ -57,7 +57,7 @@ python -m compileall -q .
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs both checks automatically on pushes to `main` and pull requests.
+Run both checks locally before deployment. CI is optional and should not be assumed to have run unless a GitHub Actions workflow is present and reports a successful run.
 
 ## Risk accounting
 
