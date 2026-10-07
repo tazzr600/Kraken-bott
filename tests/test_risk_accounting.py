@@ -121,6 +121,44 @@ class RiskAccountingTests(unittest.TestCase):
             0,
         )
 
+    def test_paper_market_fills_apply_configured_slippage(self):
+        from config import Settings
+        from kraken_client import KrakenTrader
+
+        settings = Settings()
+        settings.slippage_buffer_pct = 0.10
+
+        trader = KrakenTrader(settings)
+        trader.exchange.markets = {"BTC/USD": {}}
+        trader._markets_loaded = True
+        trader.fetch_ticker = lambda symbol: {
+            "ask": 100.0,
+            "bid": 99.0,
+        }
+        trader._normalize_amount = lambda symbol, amount: float(amount)
+        trader._market_limits = lambda symbol: {
+            "min_amount": None,
+            "max_amount": None,
+            "min_cost": None,
+            "max_cost": None,
+        }
+
+        buy = trader.market_buy("BTC/USD", 50.0)
+        self.assertAlmostEqual(buy["price"], 100.10, places=8)
+        self.assertAlmostEqual(
+            buy["quote_amount"],
+            buy["amount"] * 100.10,
+            places=8,
+        )
+
+        sell = trader.market_sell("BTC/USD", buy["amount"])
+        self.assertAlmostEqual(sell["price"], 98.901, places=8)
+        self.assertAlmostEqual(
+            sell["quote_amount"],
+            sell["amount"] * 98.901,
+            places=8,
+        )
+
     def test_paper_mode_is_the_default_and_live_is_disabled(self):
         from config import Settings
         from kraken_client import KrakenTrader
