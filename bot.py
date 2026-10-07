@@ -2152,6 +2152,7 @@ class KrakenBot:
         # =====================================================
 
         best = self._best_tradeable_signal()
+        paper_adaptive_used = False
 
         # PAPER can use an adaptive entry profile so we can
         # validate the execution/risk loop instead of waiting
@@ -2159,6 +2160,7 @@ class KrakenBot:
         # LIVE trading always uses the strict signal gate.
         if best is None and self.kraken.is_paper:
             best = self._best_paper_adaptive_signal()
+            paper_adaptive_used = best is not None
 
             if best is not None:
                 print(
@@ -2182,6 +2184,8 @@ class KrakenBot:
         # =====================================================
 
         if (
+            not paper_adaptive_used
+            and
             best.get(
                 "bearish_reversal",
                 0,
