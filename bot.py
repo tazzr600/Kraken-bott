@@ -1258,6 +1258,48 @@ class KrakenBot:
 
         return candidates[0]
 
+    def _best_paper_adaptive_signal(self):
+        """Select the strongest cost-aware PAPER setup without bypassing execution economics.
+
+        This is intentionally PAPER-only. It relaxes secondary ML/strategy gates so
+        the autonomous engine can generate enough simulated trades to learn whether
+        the execution/risk loop has positive expectancy. It never changes LIVE rules.
+        """
+        candidates = []
+        min_probability = max(0.50, float(settings.paper_min_probability))
+        min_accuracy = max(0.50, float(settings.paper_min_training_accuracy))
+        min_rr = max(0.90, float(settings.paper_min_reward_risk))
+
+        for signal in self.signals:
+            if str(signal.get("direction", "")).upper() != "LONG":
+                continue
+            if signal.get("symbol") in {p.get("symbol") for p in get_positions()}:
+                continue
+            if self._float(signal.get("probability_up", 0.0)) < min_probability:
+                continue
+            if self._float(signal.get("accuracy", 0.0)) < min_accuracy:
+                continue
+            if self._float(signal.get("execution_net_move", 0.0)) <= 0:
+                continue
+            if self._float(signal.get("reward_risk", 0.0)) < min_rr:
+                continue
+            if self._float(signal.get("bearish_reversal", 0.0)) >= self.BEARISH_REVERSAL_EXIT:
+                continue
+            candidates.append(signal)
+
+        if not candidates:
+            return None
+
+        candidates.sort(
+            key=lambda x: (
+                self._float(x.get("execution_net_move", 0.0)),
+                self._float(x.get("probability_up", 0.0)),
+                self._float(x.get("score", 0.0)),
+            ),
+            reverse=True,
+        )
+        return candidates[0]
+
     # =========================================================
     # CURRENT POSITION SIGNAL
     # =========================================================
