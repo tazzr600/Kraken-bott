@@ -2106,7 +2106,39 @@ class KrakenBot:
             candidates.append(signal)
 
         if not candidates:
-            return None
+            # Day-trading PAPER fallback: choose the strongest
+            # directional setup even when the conservative
+            # execution-cost gate rejects every candidate.
+            # This keeps PAPER mode exercising the full
+            # BUY -> TP/SL -> SELL -> next trade cycle.
+            paper_candidates = []
+            for signal in self.signals:
+                if str(signal.get("direction", "")).upper() != "LONG":
+                    continue
+                if self._float(signal.get("probability_up", 0)) < settings.paper_min_probability:
+                    continue
+                if self._float(signal.get("accuracy", 0)) < settings.paper_min_training_accuracy:
+                    continue
+                if self._float(signal.get("expected_move", 0)) < settings.min_expected_move:
+                    continue
+                if self._float(signal.get("confidence", 0)) < 0.05:
+                    continue
+                paper_candidates.append(signal)
+
+            if not paper_candidates:
+                return None
+
+            paper_candidates.sort(
+                key=lambda x: (
+                    self._float(x.get("probability_up", 0)),
+                    self._float(x.get("expected_move", 0)),
+                    self._float(x.get("combined_edge", 0)),
+                    self._float(x.get("score", 0)),
+                ),
+                reverse=True,
+            )
+
+            return paper_candidates[0]
 
         candidates.sort(
             key=lambda x: (
@@ -2206,6 +2238,7 @@ class KrakenBot:
                 0,
             )
             <= 0
+            and not paper_adaptive_used
         ):
 
             print(
