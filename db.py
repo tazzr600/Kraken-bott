@@ -1121,6 +1121,10 @@ def stats() -> Dict[str, Any]:
                 COALESCE(status, '')
             ) = 'CLOSED'
 
+            AND UPPER(
+                COALESCE(side, '')
+            ) = 'SELL'
+
             ORDER BY ts DESC
 
             LIMIT 100
