@@ -178,6 +178,16 @@ class Settings:
         )
     )
 
+    # Minimum expected reward relative to the emergency stop.
+    # Kept below 1.0 so short-horizon PAPER entries are not
+    # blocked by an overly strict risk/reward gate.
+    min_reward_risk: float = float(
+        clean_env(
+            "MIN_REWARD_RISK",
+            "0.75"
+        )
+    )
+
     # =========================================================
     # POSITION SIZING
     # =========================================================
