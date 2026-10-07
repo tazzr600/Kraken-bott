@@ -439,7 +439,7 @@ class KrakenBot:
             training_cost = (
                 settings.round_trip_cost_pct / 100
                 +
-                settings.slippage_buffer_pct / 100
+                (settings.slippage_buffer_pct / 100) * 2
             )
 
             try:
@@ -558,7 +558,7 @@ class KrakenBot:
         base_cost = (
             settings.round_trip_cost_pct / 100
             +
-            settings.slippage_buffer_pct / 100
+            (settings.slippage_buffer_pct / 100) * 2
         )
 
         total_cost = (
@@ -2268,9 +2268,25 @@ class KrakenBot:
             0.015,
             max(settings.stop_loss_pct, expected_move * 0.30),
         )
+        # The target must first clear the full modeled round-trip
+        # execution cost (fees + adverse entry/exit slippage). Otherwise
+        # a nominally profitable PAPER exit can still realize a loss.
+        modeled_round_trip_cost = (
+            settings.round_trip_cost_pct / 100
+            +
+            (settings.slippage_buffer_pct / 100) * 2
+        )
+        minimum_net_edge = max(
+            settings.min_expected_move,
+            modeled_round_trip_cost * 0.125,
+        )
         dynamic_target_pct = min(
             0.050,
-            max(settings.take_profit_pct, expected_move * 0.65),
+            max(
+                settings.take_profit_pct,
+                expected_move * 0.65,
+                modeled_round_trip_cost + minimum_net_edge,
+            ),
         )
 
         stop_price = entry * (1.0 - dynamic_stop_pct)
