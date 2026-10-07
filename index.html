@@ -3754,6 +3754,19 @@ async function refresh() {
                 "Kraken Connected • Bot Stopped • PAPER TRADING";
 
         } else if (
+            mode === "PAPER" &&
+            running
+        ) {
+
+            $("statusBadge").className =
+                "status online";
+
+            $("statusBadge").textContent =
+                connected
+                    ? "Kraken Connected • Bot Running • PAPER TRADING"
+                    : "PAPER BOT RUNNING • Kraken data reconnecting";
+
+        } else if (
             connected
         ) {
 
@@ -3769,7 +3782,9 @@ async function refresh() {
                 "status error";
 
             $("statusBadge").textContent =
-                "Kraken Connection Error";
+                mode === "PAPER"
+                    ? "Kraken Connection Pending"
+                    : "Kraken Connection Error";
         }
 
 
