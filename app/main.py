@@ -1,120 +1,126 @@
-import logging
-import threading
-import time
+import logging,threading,time
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from .config import settings
 from .db import Database
-from .polymarket import PM
+from .execution import PaperExecutor
+from .market_data import PolymarketData
 from .strategy import Engine
 
-logging.basicConfig(level=logging.INFO)
-app = FastAPI(title="Polymarket Pair Bot")
-db = Database(settings.database_path)
-stop = threading.Event()
-state = {
-    "running": False,
-    "mode": "LIVE" if settings.live_trading else "PAPER",
-    "opportunities": 0,
-    "last_scan": None,
-    "last_error": None,
-}
+logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
+app=FastAPI(title="Polymarket HFT Pair Engine")
+db=Database(settings.database_path,settings.paper_start_balance)
+stop_event=threading.Event();worker_thread=None;lock=threading.Lock();engine=None
+state={"running":False,"mode":"PAPER","started_at":None,"last_scan":None,"last_error":None,"markets_discovered":0,"opportunities":0,"last_action":None,"cycle":0}
 
-def log(level, event, message, market_id=None):
-    db.event(level, event, message, market_id)
-    getattr(logging, level.lower(), logging.info)(f"{event}: {message}")
+def log(level,event,message,market_id=None):
+    db.event(level,event,message,market_id)
+    getattr(logging,level.lower(),logging.info)(f"{event}: {message}")
 
 def worker():
-    api = None
+    global engine
     try:
-        api = PM()
-        engine = Engine(api, db, log)
-        state["running"] = True
-        log("INFO", "STARTED", f"Mode={state['mode']}")
-        while not stop.is_set():
+        engine=Engine(PolymarketData(settings,log),db,PaperExecutor(settings),settings,log)
+        with lock:
+            state["running"]=True;state["started_at"]=time.time()
+        log("INFO","STARTED","PAPER mode")
+        while not stop_event.is_set():
+            began=time.time()
             try:
-                ops = engine.scan()
-                state["opportunities"] = len(ops)
-                state["last_scan"] = time.time()
-                state["last_error"] = None
-                if ops:
-                    engine.execute(ops[0])
-            except Exception as e:
-                state["last_error"] = repr(e)
-                log("ERROR", "LOOP_ERROR", repr(e))
-            stop.wait(settings.scan_interval)
-    except Exception as e:
-        state["last_error"] = repr(e)
-        log("ERROR", "START_ERROR", repr(e))
+                opportunities=engine.cycle()
+                markets=engine.data.discover()
+                with lock:
+                    state["cycle"]+=1;state["last_scan"]=time.time();state["markets_discovered"]=len(markets)
+                    state["opportunities"]=len(opportunities)
+                    state["last_action"]=f"{opportunities[0].action}:{opportunities[0].outcome}:{opportunities[0].market.slug}" if opportunities else "HOLD"
+                    state["last_error"]=None
+                spend=db.daily_spend()
+                db.record_equity(float(settings.paper_start_balance-spend),
+                                 float(settings.paper_start_balance-spend),
+                                 float(-spend))
+            except Exception as exc:
+                with lock:state["last_error"]=repr(exc)
+                log("ERROR","LOOP_ERROR",repr(exc))
+            stop_event.wait(max(settings.scan_interval-(time.time()-began),0.05))
+    except Exception as exc:
+        with lock:state["last_error"]=repr(exc)
+        log("ERROR","START_ERROR",repr(exc))
     finally:
-        state["running"] = False
-        if api:
-            api.close()
+        with lock:state["running"]=False
+        log("INFO","STOPPED","worker stopped")
+
+def start_worker():
+    global worker_thread
+    with lock:
+        if worker_thread and worker_thread.is_alive():return False
+        stop_event.clear()
+        worker_thread=threading.Thread(target=worker,name="polymarket-engine",daemon=True)
+        worker_thread.start()
+        return True
 
 @app.on_event("startup")
 def startup():
-    threading.Thread(target=worker, daemon=True).start()
+    if settings.auto_start:start_worker()
 
 @app.on_event("shutdown")
-def shutdown():
-    stop.set()
+def shutdown():stop_event.set()
 
 @app.get("/health")
 def health():
-    return {"ok": True, **state}
+    with lock:return {"ok":True,**state}
 
 @app.get("/api/status")
 def status():
-    return {
-        **state,
-        "daily_spend": str(db.daily_spend()),
-        "min_net_edge": str(settings.min_net_edge),
-    }
+    with lock:s=dict(state)
+    return {**s,"daily_spend":float(db.daily_spend()),"trades_today":db.trades_today(),
+            "max_daily_spend":float(settings.max_daily_spend),
+            "target_trade_spend":float(settings.target_trade_spend),
+            "series":list(settings.series)}
 
-@app.get("/api/inventory")
-def inventory():
-    return db.inventory()
+@app.get("/api/markets")
+def markets():
+    if engine is None:return []
+    rows=[]
+    for market in engine.data.discover():
+        try:
+            yes,no=engine.data.books(market);u=engine.data.underlying(market)
+            signal=engine.model.estimate(market,u,yes,no);p=engine.position(market.id)
+            rows.append({"id":market.id,"slug":market.slug,"title":market.title,"series":market.series,
+                "spot":u.spot,"start_price":u.start_price,"perp":u.perp,"basis":u.basis,
+                "volatility":u.volatility,
+                "yes":{"bid":float(yes.bid or 0),"ask":float(yes.ask or 0),"size":float(yes.ask_size)},
+                "no":{"bid":float(no.bid or 0),"ask":float(no.ask or 0),"size":float(no.ask_size)},
+                "fair_up":signal.fair_up,"fair_down":signal.fair_down,
+                "edge_up":signal.edge_up,"edge_down":signal.edge_down,"direction":signal.direction,
+                "confidence":signal.confidence,"action":engine.decide(market,signal,p)[0],
+                "yes_shares":float(p.yes_shares),"no_shares":float(p.no_shares),
+                "paired":float(min(p.yes_shares,p.no_shares)),
+                "pair_cost":float(p.yes_vwap+p.no_vwap) if p.yes_shares and p.no_shares else None,
+                "reason":signal.reason})
+        except Exception as exc:
+            rows.append({"id":market.id,"slug":market.slug,"error":str(exc)})
+    return rows
+
+@app.get("/api/positions")
+def positions():return db.positions()
+
+@app.get("/api/orders")
+def orders():return db.recent_orders()
 
 @app.get("/api/events")
-def events():
-    return db.events()
+def events():return db.recent_events()
 
-@app.get("/api/stop")
-def stop_bot():
-    stop.set()
-    return JSONResponse({"ok": True})
+@app.get("/api/equity")
+def equity():return db.equity_series()
 
-@app.get("/", response_class=HTMLResponse)
+@app.post("/api/control/start")
+def control_start():return {"ok":start_worker(),"running":True}
+
+@app.post("/api/control/stop")
+def control_stop():
+    stop_event.set()
+    return {"ok":True,"running":False}
+
+@app.get("/",response_class=HTMLResponse)
 def dashboard():
-    html = """
-    <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Polymarket Pair Bot</title>
-    <style>
-    body{background:#07090d;color:#e8edf5;font-family:system-ui;margin:0}
-    .wrap{max-width:1100px;margin:auto;padding:24px}
-    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
-    .card{background:#0e131b;border:1px solid #202b3a;border-radius:12px;padding:16px}
-    .value{font-size:25px;font-weight:700;margin-top:6px}
-    table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #202b3a;text-align:left}
-    pre{white-space:pre-wrap;color:#aeb8c8}
-    @media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}
-    </style></head><body><div class="wrap">
-    <h1>POLYMARKET PAIR BOT</h1><p>Two-sided YES + NO inventory engine</p>
-    <div class="grid"><div class="card">MODE<div id="mode" class="value">—</div></div>
-    <div class="card">STATUS<div id="run" class="value">—</div></div>
-    <div class="card">OPPORTUNITIES<div id="opp" class="value">—</div></div>
-    <div class="card">DAILY SPEND<div id="spend" class="value">—</div></div></div>
-    <div class="card"><h3>Inventory</h3><div id="inv">Loading…</div></div><br>
-    <div class="card"><h3>Events</h3><pre id="events">Loading…</pre></div></div>
-    <script>
-    async function refresh(){
-      let s=await (await fetch('/api/status')).json();
-      mode.textContent=s.mode;run.textContent=s.running?'RUNNING':'STOPPED';opp.textContent=s.opportunities;spend.textContent='$'+s.daily_spend;
-      let i=await (await fetch('/api/inventory')).json();
-      inv.innerHTML=i.length?'<table><tr><th>Market</th><th>YES</th><th>NO</th><th>YES Cost</th><th>NO Cost</th></tr>'+
-      i.map(x=>'<tr><td>'+x.market_id+'</td><td>'+Number(x.yes).toFixed(2)+'</td><td>'+Number(x.no).toFixed(2)+'</td><td>$'+Number(x.yes_cost).toFixed(2)+'</td><td>$'+Number(x.no_cost).toFixed(2)+'</td></tr>').join('')+'</table>':'No inventory';
-      let e=await (await fetch('/api/events')).json();events.textContent=e.map(x=>new Date(x.ts*1000).toLocaleTimeString()+' ['+x.level+'] '+x.event+': '+x.message).join('\n');
-    } refresh();setInterval(refresh,3000);
-    </script></body></html>
-    """
-    return HTMLResponse(html)
+    with open("app/templates/dashboard.html","r",encoding="utf-8") as f:return HTMLResponse(f.read())
