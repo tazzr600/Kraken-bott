@@ -1093,6 +1093,20 @@ def stats() -> Dict[str, Any]:
             (day_start,),
         ).fetchone()
 
+        # Preserve the legacy rolling-24h dashboard metrics.
+        rolling = connection.execute(
+            """
+            SELECT
+                COALESCE(SUM(pnl), 0) AS pnl,
+                COUNT(*) AS n
+            FROM trades
+            WHERE UPPER(COALESCE(status, '')) = 'CLOSED'
+              AND UPPER(COALESCE(side, '')) = 'SELL'
+              AND ts >= ?
+            """,
+            (time.time() - 86400,),
+        ).fetchone()
+
         # ----------------------------------------------------
         # RECENT CLOSED TRADES
         # ----------------------------------------------------
@@ -1253,12 +1267,12 @@ def stats() -> Dict[str, Any]:
         # Retain legacy fields for dashboard compatibility.
         "last_24h_pnl":
             _safe_float(
-                day["pnl"]
+                rolling["pnl"]
             ),
 
         "trades_24h":
             _safe_int(
-                day["n"]
+                rolling["n"]
             ),
 
         "consecutive_losses":
