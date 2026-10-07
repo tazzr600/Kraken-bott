@@ -87,3 +87,44 @@ Keep `LIVE_TRADING=false` and `DRY_RUN=true` until paper performance has been in
 The bot is designed for fast intraday **Kraken crypto** trading. It uses 1-minute market data by default, refreshes its decision loop frequently, scans a broader liquid-market universe, enters only when the estimated edge is positive after modeled execution costs, and continuously re-evaluates an open position. If the AI direction turns bearish, the expected net edge becomes non-positive, or a bearish reversal is detected, the bot can exit and immediately look for the next qualifying market. Take-profit, stop-loss, and maximum-hold backstops remain enabled.
 
 Kraken provides the real-time crypto markets used by this bot; this repository does not treat U.S. stocks as Kraken-tradable instruments. Stock trading would require a separate brokerage/data integration.
+
+
+## Two-Sided Inventory Engine
+
+The trading engine has been rebuilt around a Kraken-spot adaptation of the
+paired-inventory concept:
+
+- scans liquid markets instead of relying on one hard-coded symbol
+- evaluates the executable bid/ask spread
+- requires the displayed spread to clear the configured execution-cost buffer
+- maintains one bid and one ask quote per selected market
+- skews both quotes when inventory becomes imbalanced
+- cancels stale quotes before replacing them
+- limits the number of simultaneously quoted markets
+- limits per-market order size and daily risk
+- in LIVE spot mode, the sell side is capped by actual free base inventory;
+  the bot never assumes margin/shorting is enabled
+- PAPER remains the default and never sends an exchange order
+
+This is a **market-making/inventory** adaptation, not a literal Polymarket
+outcome-pair arbitrage. Kraken spot does not have YES/NO contracts that both
+settle to $1, so the economically equivalent implementation is two-sided
+bid/ask inventory management.
+
+### Railway safety
+
+Keep:
+
+`LIVE_TRADING=false`
+`DRY_RUN=true`
+
+until paper behavior is validated. API credentials belong only in Railway
+environment variables, never in Git.
+
+### Important
+
+A two-sided spot strategy is not guaranteed profit. The displayed spread can
+disappear, one side can fill without the other, inventory can become
+directional, and fees can exceed the captured spread. The bot therefore uses
+inventory skew, size limits, stale-order cancellation, daily loss controls,
+and a hard paper/live gate.
