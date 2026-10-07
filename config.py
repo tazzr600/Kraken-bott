@@ -115,7 +115,7 @@ class Settings:
     min_quote_volume_usd: float = float(
         clean_env(
             "MIN_QUOTE_VOLUME_USD",
-            "100000"
+            "500000"
         )
     )
 
@@ -123,7 +123,7 @@ class Settings:
     max_spread_pct: float = float(
         clean_env(
             "MAX_SPREAD_PCT",
-            "0.80"
+            "0.25"
         )
     )
 
