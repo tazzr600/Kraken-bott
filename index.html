@@ -3730,7 +3730,8 @@ async function refresh() {
                 "🔴 Kraken Authenticated • Bot Stopped • LIVE TRADING";
 
         } else if (
-            authenticated &&
+            mode === "PAPER" &&
+            connected &&
             running &&
             workerAlive
         ) {
@@ -3739,17 +3740,18 @@ async function refresh() {
                 "status online";
 
             $("statusBadge").textContent =
-                "Kraken Authenticated • Bot Running • PAPER TRADING";
+                "Kraken Connected • Bot Running • PAPER TRADING";
 
         } else if (
-            authenticated
+            mode === "PAPER" &&
+            connected
         ) {
 
             $("statusBadge").className =
                 "status online";
 
             $("statusBadge").textContent =
-                "Kraken Authenticated • Bot Stopped • PAPER TRADING";
+                "Kraken Connected • Bot Stopped • PAPER TRADING";
 
         } else if (
             connected
@@ -3759,7 +3761,7 @@ async function refresh() {
                 "status warning";
 
             $("statusBadge").textContent =
-                "Kraken Connected • Authentication Pending";
+                "Kraken Connected • Authentication Required";
 
         } else {
 
@@ -3788,14 +3790,18 @@ async function refresh() {
 
 
         $("krakenAuth").textContent =
-            authenticated
-                ? "Authenticated"
-                : "Not authenticated";
+            mode === "PAPER"
+                ? "Not required in PAPER"
+                : (
+                    authenticated
+                        ? "Authenticated"
+                        : "Not authenticated"
+                );
 
         $("krakenAuth").className =
             "small-value " +
             (
-                authenticated
+                mode === "PAPER" || authenticated
                     ? "system-online"
                     : "system-warning"
             );
