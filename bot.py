@@ -855,6 +855,19 @@ class KrakenBot:
             )
         )
 
+        positive_precision = self._float(
+            getattr(
+                state,
+                "positive_precision",
+                0,
+            )
+        )
+
+        if positive_precision > 0 and positive_precision < settings.min_probability:
+            reasons.append(
+                f"low positive precision={positive_precision:.3f}"
+            )
+
         samples = int(
             self._float(
                 getattr(
@@ -959,6 +972,8 @@ class KrakenBot:
             "reasons": reasons,
 
             "accuracy": accuracy,
+
+            "positive_precision": positive_precision,
 
             "samples": samples,
 
