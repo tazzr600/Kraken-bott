@@ -288,6 +288,22 @@ class Settings:
         )
     )
 
+    # Stop opening new trades when the live PAPER/LIVE track record
+    # proves the current strategy has negative expectancy.
+    performance_gate_trades: int = int(
+        clean_env(
+            "PERFORMANCE_GATE_TRADES",
+            "20"
+        )
+    )
+
+    performance_gate_profit_factor: float = float(
+        clean_env(
+            "PERFORMANCE_GATE_PROFIT_FACTOR",
+            "1.05"
+        )
+    )
+
     # =========================================================
     # PAPER ACCOUNT
     # =========================================================
