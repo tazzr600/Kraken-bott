@@ -2691,6 +2691,8 @@ class KrakenBot:
 
         position = self._current_position()
 
+        scanner_status = self.scanner.status()
+
         return {
 
             "running":
@@ -2833,7 +2835,34 @@ class KrakenBot:
                 len(self.models),
 
             "markets_discovered":
-                len(self.scanner.markets),
+                scanner_status.get(
+                    "markets_discovered",
+                    len(self.scanner.markets),
+                ),
+
+            "crypto_markets":
+                scanner_status.get(
+                    "crypto_markets",
+                    0,
+                ),
+
+            "forex_markets":
+                scanner_status.get(
+                    "forex_markets",
+                    0,
+                ),
+
+            "futures_markets":
+                scanner_status.get(
+                    "futures_markets",
+                    0,
+                ),
+
+            "xstocks_markets":
+                scanner_status.get(
+                    "xstocks_markets",
+                    0,
+                ),
 
             "max_scan_symbols":
                 settings.max_scan_symbols,
