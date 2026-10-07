@@ -1,6 +1,7 @@
 name: Bot verification
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
