@@ -249,6 +249,15 @@ class KrakenBot:
         if amount <= 0:
             return False, "invalid amount"
 
+        # Kraken spot cannot sell base that the account does not own.
+        # In LIVE mode the ask is therefore capped by actual free base
+        # inventory; this bot never assumes margin/shorting.
+        if self._runtime_mode() == "LIVE":
+            free_base = self.kraken.free_base(symbol)
+            amount = min(amount, free_base * float(settings.max_inventory_fraction))
+            if amount <= 0:
+                return False, "no base inventory available for sell side"
+
         buy = self.kraken.limit_buy(symbol, amount, q["buy_price"])
         sell = self.kraken.limit_sell(symbol, amount, q["sell_price"])
 
