@@ -189,6 +189,35 @@ class RiskAccountingTests(unittest.TestCase):
             places=8,
         )
 
+    def test_profit_lock_parameters_cover_modeled_round_trip_cost(self):
+        from config import Settings
+
+        settings = Settings()
+        settings.round_trip_cost_pct = 1.60
+        settings.slippage_buffer_pct = 0.10
+        settings.profit_lock_trigger_pct = 2.50
+        settings.profit_lock_trigger_buffer_pct = 0.25
+        settings.profit_lock_min_net_pct = 0.25
+
+        modeled_cost = (
+            settings.round_trip_cost_pct / 100
+            + (settings.slippage_buffer_pct / 100) * 2
+        )
+        trigger = max(
+            modeled_cost
+            + settings.profit_lock_trigger_buffer_pct / 100,
+            settings.profit_lock_trigger_pct / 100,
+        )
+        floor = max(
+            modeled_cost
+            + settings.profit_lock_min_net_pct / 100,
+            0.0,
+        )
+
+        self.assertAlmostEqual(modeled_cost, 0.018)
+        self.assertAlmostEqual(trigger, 0.025)
+        self.assertAlmostEqual(floor, 0.0205)
+
     def test_paper_mode_is_the_default_and_live_is_disabled(self):
         from config import Settings
         from kraken_client import KrakenTrader
