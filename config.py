@@ -249,7 +249,7 @@ class Settings:
     take_profit_pct: float = float(
         clean_env(
             "TAKE_PROFIT_PCT",
-            "0.005"
+            "0.008"
         )
     )
 
