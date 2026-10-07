@@ -1721,9 +1721,21 @@ class KrakenBot:
                 or market_price
             )
 
-            amount = self._float(
+            requested_amount = self._float(
                 position["amount"]
             )
+
+            # Use the exchange-reported filled amount when available. PAPER
+            # fills are complete by construction; LIVE accounting must use
+            # the actual execution values returned by Kraken.
+            amount = self._float(
+                result.get("filled")
+                or result.get("amount")
+                or requested_amount
+            )
+
+            if amount <= 0:
+                raise RuntimeError("Exit order returned no filled amount.")
 
             entry_price = self._float(
                 position["entry_price"]
@@ -1735,10 +1747,9 @@ class KrakenBot:
                 amount
             )
 
-            gross_exit_proceeds = (
-                exit_price
-                *
-                amount
+            gross_exit_proceeds = self._float(
+                result.get("quote_amount")
+                or (exit_price * amount)
             )
 
             # =================================================
@@ -1773,8 +1784,22 @@ class KrakenBot:
 
             else:
 
-                exit_proceeds = gross_exit_proceeds
-                effective_entry_cost = entry_cost
+                # LIVE orders report the actual quote spent/proceeds and the
+                # exchange-reported fee. Do not apply the PAPER fee estimate
+                # to a real fill or realized P&L will be overstated/duplicated.
+                entry_fee_quote = self._float(
+                    position.get("entry_fee_quote", 0.0)
+                )
+                exit_fee_quote = self._float(
+                    result.get("fee_quote", 0.0)
+                )
+                exit_proceeds = max(
+                    0.0,
+                    gross_exit_proceeds - exit_fee_quote,
+                )
+                effective_entry_cost = (
+                    entry_cost + entry_fee_quote
+                )
 
             pnl = (
                 exit_proceeds
@@ -2362,6 +2387,9 @@ class KrakenBot:
             "amount": amount,
 
             "notional": notional,
+
+            "entry_fee_quote": entry_fee,
+
 
             "opened_ts": time.time(),
 
