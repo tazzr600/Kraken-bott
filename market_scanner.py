@@ -575,12 +575,30 @@ class KrakenMarketScanner:
                         )
                     )
 
+                    # Kraken/CCXT may omit quoteVolume. Derive it
+                    # from base volume and price when possible.
+                    if quote_volume <= 0:
+                        base_volume = self._number(
+                            ticker.get("baseVolume")
+                        )
+                        if base_volume > 0:
+                            quote_volume = base_volume * last
+
+                    # PAPER mode must not become marketless merely
+                    # because a ticker omitted quoteVolume.
+                    paper_mode = bool(
+                        getattr(self.kraken, "is_paper", False)
+                    )
+
                     if (
                         quote_volume
                         <
                         self.settings.min_quote_volume_usd
+                        and not paper_mode
                     ):
+                        continue
 
+                    if quote_volume <= 0:
                         continue
 
                     # -----------------------------------------
