@@ -1912,43 +1912,47 @@ class KrakenBot:
         )
 
         # -----------------------------------------------------
-        # HARD PROFIT-FIRST EXIT
-        # -----------------------------------------------------
-        # Do not rotate or AI-exit a losing position. A normal
-        # position stays open until it is profitable, reaches
-        # the configured take-profit, or hits the emergency stop.
-        #
-        # This gives the PAPER day-trader the requested:
-        # BUY -> WAIT FOR PROFIT -> SELL -> BUY NEXT.
-        # The emergency stop remains the only loss exit.
+        # DAY-TRADE EXIT ORDER:
+        # 1) emergency stop, 2) take profit, 3) max-hold rotation.
+        entry_price = self._float(position.get("entry_price", 0))
+        profit_pct = (price / entry_price - 1.0) if entry_price > 0 else 0.0
+
+        # Emergency stop remains active even while the trade is losing.
+        stop_price = self._float(position.get("stop_price", 0))
+        if stop_price > 0 and price <= stop_price:
+            result = await self.exit_position(position, "emergency stop loss", apply_cooldown=True)
+            return bool(result.get("ok"))
+
+        # Take profit: lock the gain as soon as the target is reached.
+        target_pct = max(0.0, float(settings.take_profit_pct))
+        if target_pct > 0 and entry_price > 0 and profit_pct >= target_pct:
+            result = await self.exit_position(position, "take-profit reached", apply_cooldown=False)
+            return bool(result.get("ok"))
+
+        # Max hold: rotate even if flat or losing so capital is not stuck.
+        opened_ts = self._float(position.get("opened_ts", 0))
+        max_hold_seconds = max(0, int(settings.max_hold_minutes)) * 60
+        if opened_ts > 0 and max_hold_seconds > 0 and time.time() - opened_ts >= max_hold_seconds:
+            reason = (
+                "max hold reached; rotating to next day-trade "
+                f"(P&L {profit_pct * 100:.3f}%)"
+                if entry_price > 0
+                else "max hold reached; rotating to next day-trade"
+            )
+            result = await self.exit_position(position, reason, apply_cooldown=False)
+            return bool(result.get("ok"))
+
         if entry_price > 0:
-            profit_pct = (
-                price / entry_price
-                - 1.0
-            )
-
-            target_pct = max(
-                0.0,
-                float(settings.take_profit_pct),
-            )
-
-            if target_pct > 0 and profit_pct >= target_pct:
-                result = await self.exit_position(
-                    position,
-                    "take-profit reached",
-                    apply_cooldown=False,
-                )
-                return bool(result.get("ok"))
-
-            # Never use AI rotation to close a losing/flat trade.
-            # If profitable but below target, continue holding for
-            # the configured target.
-            if profit_pct <= 0:
+            if profit_pct > 0:
                 self.last_position_reason = (
-                    f"holding until profitable "
-                    f"(P&L {profit_pct * 100:.3f}%)"
+                    f"holding profitable position ({profit_pct * 100:.3f}%) until take profit"
                 )
-                return False
+            else:
+                self.last_position_reason = (
+                    f"holding day-trade ({profit_pct * 100:.3f}%; "
+                    f"max hold {settings.max_hold_minutes}m)"
+                )
+        return False
 
         # -----------------------------------------------------
         # EMERGENCY STOP
