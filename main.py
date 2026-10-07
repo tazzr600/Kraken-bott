@@ -537,63 +537,45 @@ def test_kraken_connection(
     # --------------------------------------------------------
     # AUTHENTICATION
     # --------------------------------------------------------
+    #
+    # PAPER mode only needs public market-data connectivity.
+    # Do not require private API credentials just to run PAPER.
+    # Authentication is checked only when LIVE orders are enabled.
 
-    try:
+    result["mode"] = get_runtime_mode(bot)
 
-        if hasattr(
-            trader,
-            "test_authentication",
-        ):
+    if result["mode"] == "LIVE" or bool(
+        getattr(trader, "live_orders_enabled", False)
+    ):
+        try:
+            if hasattr(trader, "test_authentication"):
+                authentication = trader.test_authentication()
 
-            authentication = (
-                trader.test_authentication()
-            )
-
-            if isinstance(
-                authentication,
-                dict,
-            ):
-
-                result.update(
-                    authentication
-                )
-
-                result["authenticated"] = bool(
-                    authentication.get(
-                        "authenticated",
+                if isinstance(authentication, dict):
+                    result.update(authentication)
+                    result["authenticated"] = bool(
                         authentication.get(
-                            "ok",
-                            False,
-                        ),
+                            "authenticated",
+                            authentication.get("ok", False),
+                        )
                     )
-                )
-
+                else:
+                    result["authenticated"] = bool(authentication)
             else:
-
                 result["authenticated"] = bool(
-                    authentication
+                    getattr(trader, "authenticated", False)
                 )
-
-        else:
-
-            result["authenticated"] = bool(
-                getattr(
-                    trader,
-                    "authenticated",
-                    False,
-                )
+        except Exception as exc:
+            logger.error(
+                "Kraken authentication test failed: %s",
+                exc,
             )
-
-    except Exception as exc:
-
-        logger.error(
-            "Kraken authentication test failed: %s",
-            exc,
+            result["authentication_error"] = str(exc)
+    else:
+        result["authenticated"] = bool(
+            getattr(trader, "authenticated", False)
         )
-
-        result["authentication_error"] = str(
-            exc
-        )
+        result["authentication_skipped"] = True
 
     # --------------------------------------------------------
     # LIVE ORDERS
@@ -607,13 +589,13 @@ def test_kraken_connection(
         )
     )
 
-    result["mode"] = get_runtime_mode(
-        bot
-    )
-
     result["ok"] = bool(
         result["connected"]
-        and result["authenticated"]
+        and (
+            result["authenticated"]
+            if result["mode"] == "LIVE"
+            else True
+        )
     )
 
     return json_safe(
@@ -1038,18 +1020,11 @@ def start_bot_thread() -> tuple[bool, str]:
 
                 return (
                     False,
-                    "Kraken connection failed.",
+                    "Kraken public market-data connection failed.",
                 )
 
-            if not connection.get(
-                "authenticated",
-                False,
-            ):
-
-                return (
-                    False,
-                    "Kraken authentication failed.",
-                )
+            # PAPER mode intentionally does not require private
+            # API authentication. LIVE remains gated separately.
 
             # ------------------------------------------------
             # START
@@ -2300,16 +2275,9 @@ async def startup_event():
 
     if autonomous:
 
-        if (
-            kraken.get(
-                "connected",
-                False,
-            )
-            and
-            kraken.get(
-                "authenticated",
-                False,
-            )
+        if kraken.get(
+            "connected",
+            False,
         ):
 
             success, message = (
@@ -2333,7 +2301,7 @@ async def startup_event():
 
             logger.warning(
                 "Autonomous mode enabled, but "
-                "Kraken is not authenticated. "
+                "Kraken public market data is unavailable. "
                 "Worker not started."
             )
 
