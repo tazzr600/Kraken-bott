@@ -2314,8 +2314,11 @@ class KrakenBot:
 
         else:
 
-            entry_fee = 0.0
-            total_entry_cash = notional
+            # LIVE uses Kraken's actual fee from the completed order.
+            entry_fee = self._float(
+                result.get("fee_quote", 0.0)
+            )
+            total_entry_cash = notional + entry_fee
 
         # =====================================================
         # EMERGENCY STOP
