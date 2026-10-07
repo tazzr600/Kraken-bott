@@ -2115,11 +2115,11 @@ class KrakenBot:
             for signal in self.signals:
                 if str(signal.get("direction", "")).upper() != "LONG":
                     continue
-                if self._float(signal.get("probability_up", 0)) < settings.paper_min_probability:
+                if self._float(signal.get("probability_up", 0)) < min(settings.paper_min_probability, 0.52):
                     continue
                 if self._float(signal.get("accuracy", 0)) < settings.paper_min_training_accuracy:
                     continue
-                if self._float(signal.get("expected_move", 0)) < settings.min_expected_move:
+                if self._float(signal.get("expected_move", 0)) < min(settings.min_expected_move, 0.0005):
                     continue
                 if self._float(signal.get("confidence", 0)) < 0.05:
                     continue
