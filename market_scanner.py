@@ -558,6 +558,13 @@ class KrakenMarketScanner:
 
             self.universe = candidates
 
+            try:
+                self.kraken.connected = True
+                self.kraken.last_error = None
+                self.kraken.last_error_type = None
+            except Exception:
+                pass
+
             self.last_refresh = now
 
             self.last_error = None
@@ -635,6 +642,13 @@ class KrakenMarketScanner:
                 f"{type(exc).__name__}: "
                 f"{exc}"
             )
+
+            try:
+                self.kraken.connected = False
+                self.kraken.last_error = str(exc)
+                self.kraken.last_error_type = type(exc).__name__
+            except Exception:
+                pass
 
             print(
                 "MARKET SCANNER ERROR:",
