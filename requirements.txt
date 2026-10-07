@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-ccxt
-numpy
-pandas
-scikit-learn
