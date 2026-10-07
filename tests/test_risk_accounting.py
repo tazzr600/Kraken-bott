@@ -218,6 +218,32 @@ class RiskAccountingTests(unittest.TestCase):
         self.assertAlmostEqual(trigger, 0.025)
         self.assertAlmostEqual(floor, 0.0205)
 
+
+    def test_live_order_fee_is_normalized_to_quote_currency(self):
+        from config import Settings
+        from kraken_client import KrakenTrader
+
+        settings = Settings()
+        trader = KrakenTrader(settings)
+        trader.exchange.markets = {
+            "BTC/USD": {"quote": "USD"},
+        }
+        trader._markets_loaded = True
+
+        fee = trader._order_fee_quote(
+            {"fee": {"cost": 0.40, "currency": "USD"}},
+            "BTC/USD",
+            100.0,
+        )
+        self.assertAlmostEqual(fee, 0.40, places=8)
+
+        base_fee = trader._order_fee_quote(
+            {"fee": {"cost": 0.004, "currency": "BTC"}},
+            "BTC/USD",
+            100.0,
+        )
+        self.assertAlmostEqual(base_fee, 0.40, places=8)
+
     def test_paper_mode_is_the_default_and_live_is_disabled(self):
         from config import Settings
         from kraken_client import KrakenTrader
