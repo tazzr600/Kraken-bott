@@ -1068,10 +1068,38 @@ class KrakenBot:
 
             self.last_scan = time.time()
 
+            tradeable_count = sum(
+                1
+                for signal in results
+                if signal.get("tradeable")
+            )
+
+            blocked_reasons = {}
+            for signal in results:
+                for reason in signal.get("reasons", [])[:2]:
+                    key = str(reason)
+                    blocked_reasons[key] = blocked_reasons.get(key, 0) + 1
+
+            top_blockers = sorted(
+                blocked_reasons.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )[:5]
+
             print(
                 f"AI RESULTS: "
-                f"{len(results)}"
+                f"{len(results)} "
+                f"tradeable={tradeable_count}"
             )
+
+            if top_blockers:
+                print(
+                    "AI BLOCKERS: "
+                    + " | ".join(
+                        f"{reason} x{count}"
+                        for reason, count in top_blockers
+                    )
+                )
 
             # =================================================
             # LOG TOP RESULTS
