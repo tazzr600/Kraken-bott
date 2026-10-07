@@ -107,7 +107,7 @@ class Settings:
     max_scan_symbols: int = int(
         clean_env(
             "MAX_SCAN_SYMBOLS",
-            "12"
+            "20"
         )
     )
 
@@ -115,7 +115,7 @@ class Settings:
     min_quote_volume_usd: float = float(
         clean_env(
             "MIN_QUOTE_VOLUME_USD",
-            "250000"
+            "100000"
         )
     )
 
@@ -160,21 +160,21 @@ class Settings:
     min_probability: float = float(
         clean_env(
             "MIN_PROBABILITY",
-            "0.54"
+            "0.51"
         )
     )
 
     min_expected_move: float = float(
         clean_env(
             "MIN_EXPECTED_MOVE",
-            "0.001"
+            "0.0005"
         )
     )
 
     min_training_accuracy: float = float(
         clean_env(
             "MIN_TRAINING_ACCURACY",
-            "0.48"
+            "0.45"
         )
     )
 
@@ -184,7 +184,7 @@ class Settings:
     min_reward_risk: float = float(
         clean_env(
             "MIN_REWARD_RISK",
-            "0.75"
+            "0.50"
         )
     )
 
@@ -242,21 +242,21 @@ class Settings:
     stop_loss_pct: float = float(
         clean_env(
             "STOP_LOSS_PCT",
-            "0.008"
+            "0.005"
         )
     )
 
     take_profit_pct: float = float(
         clean_env(
             "TAKE_PROFIT_PCT",
-            "0.008"
+            "0.005"
         )
     )
 
     max_hold_minutes: int = int(
         clean_env(
             "MAX_HOLD_MINUTES",
-            "30"
+            "20"
         )
     )
 
