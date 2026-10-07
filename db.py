@@ -1151,6 +1151,23 @@ def stats() -> Dict[str, Any]:
         row["losses"]
     )
 
+    recent_pnls = [
+        _safe_float(trade["pnl"])
+        for trade in recent
+    ]
+    recent_wins = [p for p in recent_pnls if p > 0]
+    recent_losses = [p for p in recent_pnls if p < 0]
+    recent_gross_profit = sum(recent_wins)
+    recent_gross_loss = abs(sum(recent_losses))
+    recent_profit_factor = (
+        recent_gross_profit / recent_gross_loss
+        if recent_gross_loss > 0 else (float("inf") if recent_gross_profit > 0 else 0.0)
+    )
+    recent_expectancy = (
+        sum(recent_pnls) / len(recent_pnls)
+        if recent_pnls else 0.0
+    )
+
     # --------------------------------------------------------
     # CONSECUTIVE LOSSES
     # --------------------------------------------------------
@@ -1281,6 +1298,21 @@ def stats() -> Dict[str, Any]:
 
         "consecutive_losses":
             consecutive_losses,
+
+        "recent_trades":
+            len(recent_pnls),
+
+        "recent_profit_factor":
+            recent_profit_factor,
+
+        "recent_expectancy":
+            recent_expectancy,
+
+        "recent_gross_profit":
+            recent_gross_profit,
+
+        "recent_gross_loss":
+            recent_gross_loss,
 
         "paper_start_balance":
             start_balance,
