@@ -86,6 +86,20 @@ class RiskAccountingTests(unittest.TestCase):
         self.assertAlmostEqual(stats["daily_pnl"], -4.5)
         self.assertEqual(stats["trades_today"], 2)
 
+    def test_daily_state_resets_persisted_counters_at_new_day(self):
+        self.db.set_risk("daily_start_date", "1900-01-01")
+        self.db.set_risk("trades_today", 99)
+        self.db.set_risk("consecutive_losses", 7)
+
+        self.db.reset_daily_state_if_needed()
+
+        self.assertEqual(
+            self.db.get_risk("daily_start_date", ""),
+            time.strftime("%Y-%m-%d", time.localtime()),
+        )
+        self.assertEqual(self.db.get_trades_today(), 0)
+        self.assertEqual(self.db.get_consecutive_losses(), 0)
+
     def test_completed_sell_synchronizes_risk_counters(self):
         self.add_trade(
             ts=time.time(),
