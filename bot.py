@@ -2910,6 +2910,9 @@ class KrakenBot:
             "allowed_quotes":
                 settings.allowed_quote_list,
 
+            "trade_quotes":
+                settings.trade_quote_list,
+
             "rotation":
                 {
                     "enabled": True,
@@ -2940,6 +2943,12 @@ class KrakenBot:
 
                     "stop_loss_pct":
                         settings.stop_loss_pct,
+
+                    "performance_gate_trades":
+                        settings.performance_gate_trades,
+
+                    "performance_gate_profit_factor":
+                        settings.performance_gate_profit_factor,
                 },
 
         }
