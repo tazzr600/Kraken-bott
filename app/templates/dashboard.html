@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POLYMARKET BOT</title>
+<style>
+:root{--bg:#05070a;--panel:#090d12;--line:#1b2630;--text:#e7edf4;--muted:#71808d;--green:#47e58a;--red:#ff5c75;--cyan:#39d7ff;--yellow:#f4d35e}
+*{box-sizing:border-box}body{margin:0;background:#05070a;color:var(--text);font:12px Inter,system-ui,sans-serif}.shell{padding:12px}.terminal{max-width:1500px;margin:auto;border:1px solid #263340;border-radius:9px;overflow:hidden;background:#06090d;box-shadow:0 25px 80px #000}.top{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid var(--line);background:#080c11}.brand{font-weight:900;letter-spacing:.18em}.brand small{color:var(--muted);letter-spacing:.05em}.status{display:flex;gap:15px;color:var(--muted)}.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--green);box-shadow:0 0 10px var(--green)}button{background:#0c1219;color:#ccd6df;border:1px solid #293743;border-radius:4px;padding:7px 10px;cursor:pointer}.ticker{display:grid;grid-template-columns:1.4fr repeat(6,1fr);border-bottom:1px solid var(--line)}.metric{padding:11px 13px;border-right:1px solid var(--line)}.metric label{display:block;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.12em}.metric strong{display:block;font-size:19px;margin-top:5px}.metric:first-child strong{font-size:28px;color:var(--green)}.grid{display:grid;grid-template-columns:1.3fr 1.2fr .95fr;grid-template-rows:300px 340px 240px;gap:1px;background:var(--line)}.panel{background:var(--panel);padding:11px;overflow:hidden}.wide{grid-column:1/3}.full{grid-column:1/4}.head{display:flex;justify-content:space-between;margin-bottom:8px}.head h3{margin:0;font-size:9px;letter-spacing:.12em;color:#b8c4cf}.head span{font-size:9px;color:var(--muted)}canvas{width:100%;height:250px;background:#080e14;border:1px solid #16212a;border-radius:4px}.bookgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.row{display:grid;grid-template-columns:1fr 1fr 1fr;padding:5px;border-bottom:1px solid #121b23}.row span:last-child{text-align:right}.ask{color:#ff8394}.bid{color:#69e8a0}.mid{text-align:center;border:1px solid #22313d;background:#0b1118;padding:9px;margin-top:8px}.mid b{font-size:20px}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:6px;border-bottom:1px solid #16212a;text-align:left;white-space:nowrap}.table th{color:#6d7c88;font-size:8px;text-transform:uppercase}.green{color:var(--green)}.red{color:var(--red)}.cyan{color:var(--cyan)}.yellow{color:var(--yellow)}.flow{height:300px;border:1px solid #17222c;border-radius:4px;background:radial-gradient(circle,#0c151d,#05080c 70%)}svg{width:100%;height:100%}.node{fill:#111c24;stroke:#3a4b58}.live{fill:#0c4a39;stroke:#47e58a}.link{stroke:#2b414d;fill:none;opacity:.65}.pulse{fill:#47e58a}.logs{height:190px;overflow:auto;font:10px ui-monospace,monospace;color:#94a2af;line-height:1.55}.log{border-bottom:1px solid #101820;padding:2px}.tag{color:#65dfff;margin-right:5px}.footer{padding:8px 12px;color:#52616e;font-size:9px;border-top:1px solid var(--line);display:flex;justify-content:space-between}@media(max-width:1050px){.ticker{grid-template-columns:repeat(4,1fr)}.metric:first-child{grid-column:1/3}.grid{grid-template-columns:1fr 1fr;grid-template-rows:auto}.wide,.full{grid-column:auto}}@media(max-width:700px){.shell{padding:0}.terminal{border-radius:0}.status{display:none}.ticker{grid-template-columns:1fr 1fr}.metric:first-child{grid-column:1/3}.grid{display:block}.panel{border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="shell"><div class="terminal">
+<div class="top"><div class="brand">POLYMARKET <small>// HFT PAIR ENGINE</small></div><div class="status"><span><i class="dot"></i> <b id="run">RUNNING</b></span><span id="mode">PAPER</span><span id="clock">--:--:-- UTC</span></div><div><button onclick="control('start')">START</button> <button onclick="control('stop')">STOP</button></div></div>
+<div class="ticker">
+<div class="metric"><label>Net P&L</label><strong id="pnl">+$0.00</strong></div>
+<div class="metric"><label>Today P&L</label><strong id="today">+$0.00</strong></div>
+<div class="metric"><label>Win Rate</label><strong id="win">PAPER</strong></div>
+<div class="metric"><label>Avg Trade</label><strong id="avg">$0.00</strong></div>
+<div class="metric"><label>Paired Edge</label><strong id="pair">0.00%</strong></div>
+<div class="metric"><label>Markets</label><strong id="markets">0</strong></div>
+<div class="metric"><label>Daily Spend</label><strong id="spend">$0.00</strong></div>
+</div>
+<div class="grid">
+<section class="panel wide"><div class="head"><h3>EQUITY / REALIZED FLOW</h3><span id="cycle">CYCLE 0</span></div><canvas id="chart"></canvas></section>
+<section class="panel"><div class="head"><h3>LIVE MARKET / FAIR VALUE</h3><span id="title">WAITING</span></div><div id="fair"></div></section>
+<section class="panel"><div class="head"><h3>ORDER BOOK</h3><span id="booktitle">NO MARKET</span></div><div id="book"></div></section>
+<section class="panel full"><div class="head"><h3>MARKET FLOW // DIRECTION → HEDGE → COMPLETE SET</h3><span>MODEL STATE</span></div><div class="flow"><svg viewBox="0 0 1200 300"><path class="link" d="M150 150 C220 150 230 150 315 150"/><path class="link" d="M465 150 C520 100 540 75 600 75"/><path class="link" d="M465 150 C520 200 540 225 600 225"/><path class="link" d="M675 75 C740 150 760 150 825 150"/><path class="link" d="M675 225 C740 150 760 150 825 150"/><path class="link" d="M975 150 C1030 100 1050 75 1125 75"/><path class="link" d="M975 150 C1030 200 1050 225 1125 225"/><g><rect class="node live" x="75" y="128" width="150" height="44" rx="4"/><text x="150" y="155" text-anchor="middle" fill="#c8d2dc" font-size="10">DATA</text></g><g><rect class="node live" x="315" y="128" width="150" height="44" rx="4"/><text x="390" y="155" text-anchor="middle" fill="#c8d2dc" font-size="10">FAIR VALUE</text></g><g><rect class="node" x="525" y="53" width="150" height="44" rx="4"/><text x="600" y="80" text-anchor="middle" fill="#c8d2dc" font-size="10">ENTRY</text></g><g><rect class="node" x="525" y="203" width="150" height="44" rx="4"/><text x="600" y="230" text-anchor="middle" fill="#c8d2dc" font-size="10">DYNAMIC HEDGE</text></g><g><rect class="node live" x="825" y="128" width="150" height="44" rx="4"/><text x="900" y="155" text-anchor="middle" fill="#c8d2dc" font-size="10">COMPLETE SET</text></g><g><rect class="node" x="1050" y="53" width="150" height="44" rx="4"/><text x="1125" y="80" text-anchor="middle" fill="#c8d2dc" font-size="10">DIRECTIONAL</text></g><g><rect class="node" x="1050" y="203" width="150" height="44" rx="4"/><text x="1125" y="230" text-anchor="middle" fill="#c8d2dc" font-size="10">RESOLUTION</text></g><circle class="pulse" cx="150" cy="150" r="4"><animate attributeName="cx" from="150" to="390" dur="1.3s" repeatCount="indefinite"/></circle></svg></div></section>
+<section class="panel"><div class="head"><h3>INVENTORY BUILDER</h3><span>UNPAIRED / PAIRED</span></div><div id="positions"></div></section>
+<section class="panel"><div class="head"><h3>OPPORTUNITY MATRIX</h3><span>FAIR VALUE VS ASK</span></div><div id="matrix"></div></section>
+<section class="panel"><div class="head"><h3>EXECUTION LOG</h3><span>RECENT EVENTS</span></div><div id="logs" class="logs"></div></section>
+</div>
+<div class="footer"><span>Paper simulator. Fair value = distance + momentum + speed + volatility + spot/perp basis.</span><span id="last">LAST SCAN —</span></div>
+</div></div>
+<script>
+function el(id){return document.getElementById(id)}
+function pct(x){return (Number(x||0)*100).toFixed(2)+"%"}
+function money(x){return (Number(x||0)>=0?"+":"-")+"$"+Math.abs(Number(x||0)).toFixed(2)}
+async function get(u){return (await fetch(u)).json()}
+async function control(a){await fetch("/api/control/"+a,{method:"POST"});refresh()}
+function draw(data){
+ const c=el("chart"),ctx=c.getContext("2d"),d=devicePixelRatio||1,w=c.clientWidth*d,h=c.clientHeight*d;c.width=w;c.height=h;ctx.clearRect(0,0,w,h);ctx.strokeStyle="#17232c";
+ for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(0,i*h/5);ctx.lineTo(w,i*h/5);ctx.stroke()}
+ if(!data.length)return;const v=data.map(x=>Number(x.equity||0)),min=Math.min.apply(null,v),max=Math.max.apply(null,v),span=Math.max(max-min,.01);ctx.strokeStyle="#47e58a";ctx.lineWidth=2*d;ctx.beginPath();
+ v.forEach(function(x,i){let px=6+i*(w-12)/Math.max(v.length-1,1),py=h-8-(x-min)/span*(h-16);if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py)});ctx.stroke()
+}
+function renderFair(m){
+ if(!m){el("fair").innerHTML="<p style='color:#667580'>No active market.</p>";return}
+ el("title").textContent=m.slug;
+ el("fair").innerHTML="<div class='metric'><label>Model UP</label><strong class='cyan'>"+pct(m.fair_up)+"</strong></div><div class='metric'><label>Model DOWN</label><strong class='cyan'>"+pct(m.fair_down)+"</strong></div><div class='mid'><small>PRIMARY SIGNAL</small><br><b>"+m.direction+"</b><br><span class='"+(m.direction==="UP"?m.edge_up:m.edge_down)>0?'green':'red'+"'>"+pct(m.direction==="UP"?m.edge_up:m.edge_down)+" edge</span></div><table class='table'><tr><td>Spot</td><td>"+Number(m.spot).toFixed(2)+"</td></tr><tr><td>Open</td><td>"+Number(m.start_price).toFixed(2)+"</td></tr><tr><td>Perp basis</td><td>"+pct(m.basis)+"</td></tr><tr><td>Volatility</td><td>"+pct(m.volatility)+"</td></tr><tr><td>Confidence</td><td>"+pct(m.confidence)+"</td></tr><tr><td>Action</td><td class='yellow'>"+m.action+"</td></tr></table><p style='color:#70808c'>"+m.reason+"</p>"
+}
+function renderBook(m){
+ if(!m){el("book").innerHTML="<p style='color:#667580'>Waiting for book.</p>";return}
+ el("booktitle").textContent=m.slug;
+ el("book").innerHTML="<div class='bookgrid'><div><h4>UP</h4><div class='row ask'><span>ASK</span><span>"+Number(m.yes.ask).toFixed(3)+"</span><span>"+Number(m.yes.size).toFixed(1)+"</span></div></div><div><h4>DOWN</h4><div class='row ask'><span>ASK</span><span>"+Number(m.no.ask).toFixed(3)+"</span><span>"+Number(m.no.size).toFixed(1)+"</span></div></div></div><div class='mid'>UP + DOWN ask = <b>"+(Number(m.yes.ask)+Number(m.no.ask)).toFixed(3)+"</b><br><small>Immediate pair edge "+pct(1-Number(m.yes.ask)-Number(m.no.ask))+"</small></div>"
+}
+function renderPositions(data){
+ if(!data.length){el("positions").innerHTML="<p style='color:#667580'>No inventory yet.</p>";return}
+ let h="<table class='table'><tr><th>MARKET</th><th>UP</th><th>DOWN</th><th>PAIRED</th><th>COST</th></tr>";
+ data.slice(0,10).forEach(function(x){h+="<tr><td>"+x.market_id+"</td><td>"+Number(x.yes_shares).toFixed(1)+"</td><td>"+Number(x.no_shares).toFixed(1)+"</td><td class='green'>"+Number(x.paired).toFixed(1)+"</td><td>"+Number(x.paired_cost||0).toFixed(3)+"</td></tr>"});el("positions").innerHTML=h+"</table>"
+}
+function renderMatrix(ms){
+ if(!ms.length){el("matrix").textContent="No markets.";return}
+ let h="<table class='table'><tr><th>SERIES</th><th>DIR</th><th>FV</th><th>ASK</th><th>EDGE</th><th>ACT</th></tr>";
+ ms.forEach(function(m){let up=m.direction==="UP",fv=up?m.fair_up:m.fair_down,ask=up?m.yes.ask:m.no.ask,ed=up?m.edge_up:m.edge_down;h+="<tr><td>"+m.series+"</td><td class='"+(up?"green":"red")+"'>"+m.direction+"</td><td>"+pct(fv)+"</td><td>"+Number(ask).toFixed(3)+"</td><td>"+pct(ed)+"</td><td class='yellow'>"+m.action+"</td></tr>"});el("matrix").innerHTML=h+"</table>"
+}
+function renderLogs(data){el("logs").innerHTML=data.slice(0,70).map(function(x){return "<div class='log'><span class='tag'>"+x.event+"</span>"+x.message+"</div>"}).join("")}
+async function refresh(){
+ try{
+  let a=await Promise.all([get("/api/status"),get("/api/markets"),get("/api/positions"),get("/api/equity"),get("/api/events")]),s=a[0],ms=a[1].filter(function(x){return !x.error}),pos=a[2],eq=a[3],ev=a[4];
+  el("run").textContent=s.running?"RUNNING":"STOPPED";el("mode").textContent=s.mode;el("markets").textContent=s.markets_discovered;el("spend").textContent="$"+Number(s.daily_spend).toFixed(2);el("cycle").textContent="CYCLE "+s.cycle;el("clock").textContent=new Date().toISOString().slice(11,19)+" UTC";el("last").textContent="LAST SCAN "+(s.last_scan?new Date(s.last_scan*1000).toLocaleTimeString():"—");
+  let p=eq.length?eq[eq.length-1].pnl:0;el("pnl").textContent=money(p);el("today").textContent=money(p);el("avg").textContent="$"+(s.trades_today?Number(s.daily_spend)/s.trades_today:0).toFixed(2);
+  renderFair(ms[0]);renderBook(ms[0]);renderPositions(pos);renderMatrix(ms);renderLogs(ev);draw(eq);el("pair").textContent=ms[0]?pct(1-Number(ms[0].yes.ask)-Number(ms[0].no.ask)):"0.00%"
+ }catch(e){el("run").textContent="OFFLINE"}
+}
+refresh();setInterval(refresh,1500)
+</script>
+</body>
+</html>
