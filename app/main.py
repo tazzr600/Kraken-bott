@@ -86,7 +86,9 @@ def health():
 @app.get("/api/status")
 def status():
     with lock:s=dict(state)
-    clob_status=engine.data.clob_status() if engine else {"available":False,"reason":"engine not started","retry_at":None}\n    geoblock=engine.data.geoblock() if engine else {"blocked":None,"error":"engine not started"}\n    return {**s,"daily_spend":float(db.daily_spend()),"trades_today":db.trades_today(),"max_daily_spend":float(settings.max_daily_spend),"target_trade_spend":float(settings.target_trade_spend),"series":list(settings.series),"clob_status":clob_status,"geoblock":geoblock}
+    clob_status=engine.data.clob_status() if engine else {"available":False,"reason":"engine not started","retry_at":None}
+    geoblock=engine.data.geoblock() if engine else {"blocked":None,"error":"engine not started"}
+    return {**s,"daily_spend":float(db.daily_spend()),"trades_today":db.trades_today(),"max_daily_spend":float(settings.max_daily_spend),"target_trade_spend":float(settings.target_trade_spend),"series":list(settings.series),"clob_status":clob_status,"geoblock":geoblock}
 
 @app.get("/api/markets")
 def markets():
