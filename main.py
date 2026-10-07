@@ -1020,27 +1020,57 @@ def start_bot_thread() -> tuple[bool, str]:
             _worker_error = None
             _worker_started_at = now_ts()
 
-            worker_thread = threading.Thread(
-                target=_run_bot_worker,
-                args=(bot,),
-                name="kraken-bot-worker",
-                daemon=True,
-            )
-
-            worker_thread.start()
-
-            time.sleep(
-                0.35
-            )
-
-            if not worker_thread.is_alive():
-
+            # Mark the engine running before handing it to the
+            # background worker. This makes the start operation
+            # deterministic and avoids waiting on the first scan.
+            try:
+                if hasattr(bot, "start"):
+                    bot.start()
+                else:
+                    bot.running = True
+            except Exception as exc:
+                _worker_error = (
+                    f"Bot initialization failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                logger.exception(
+                    "Bot initialization failed."
+                )
                 return (
                     False,
-                    _worker_error
-                    or "Bot worker stopped immediately.",
+                    _worker_error,
                 )
 
+            try:
+                worker_thread = threading.Thread(
+                    target=_run_bot_worker,
+                    args=(bot,),
+                    name="kraken-bot-worker",
+                    daemon=True,
+                )
+
+                worker_thread.start()
+
+            except Exception as exc:
+                try:
+                    bot.running = False
+                except Exception:
+                    pass
+
+                _worker_error = (
+                    f"Worker start failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                logger.exception(
+                    "Worker thread could not start."
+                )
+                return (
+                    False,
+                    _worker_error,
+                )
+
+            # Do not wait for the first market scan here.
+            # bot.run() owns its own retry/error handling.
             return (
                 True,
                 "Kraken bot started successfully.",
