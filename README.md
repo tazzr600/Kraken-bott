@@ -80,3 +80,10 @@ The scanner status exposes:
 Railway uses the included Dockerfile and `railway.toml`. The HTTP health check is `/health`.
 
 Keep `LIVE_TRADING=false` and `DRY_RUN=true` until paper performance has been independently validated.
+
+
+## Trading behavior
+
+The bot is designed for fast intraday **Kraken crypto** trading. It uses 1-minute market data by default, refreshes its decision loop frequently, scans a broader liquid-market universe, enters only when the estimated edge is positive after modeled execution costs, and continuously re-evaluates an open position. If the AI direction turns bearish, the expected net edge becomes non-positive, or a bearish reversal is detected, the bot can exit and immediately look for the next qualifying market. Take-profit, stop-loss, and maximum-hold backstops remain enabled.
+
+Kraken provides the real-time crypto markets used by this bot; this repository does not treat U.S. stocks as Kraken-tradable instruments. Stock trading would require a separate brokerage/data integration.
