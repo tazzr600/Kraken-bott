@@ -188,6 +188,35 @@ class Settings:
         )
     )
 
+    # PAPER-only adaptive entry. This relaxes secondary
+    # heuristic vetoes so the strategy can generate simulated
+    # trades for validation. It never changes LIVE entry rules.
+    paper_adaptive_entry: bool = flag(
+        "PAPER_ADAPTIVE_ENTRY",
+        True
+    )
+
+    paper_min_probability: float = float(
+        clean_env(
+            "PAPER_MIN_PROBABILITY",
+            "0.52"
+        )
+    )
+
+    paper_min_training_accuracy: float = float(
+        clean_env(
+            "PAPER_MIN_TRAINING_ACCURACY",
+            "0.45"
+        )
+    )
+
+    paper_min_reward_risk: float = float(
+        clean_env(
+            "PAPER_MIN_REWARD_RISK",
+            "0.50"
+        )
+    )
+
     # =========================================================
     # POSITION SIZING
     # =========================================================
