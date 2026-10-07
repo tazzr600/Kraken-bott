@@ -304,6 +304,10 @@ class KrakenBot:
 
             daily_pnl, trades_today = self._today_trade_metrics()
             s = stats()
+            perf_trades = int(s.get("recent_trades", 0) or 0)
+            perf_factor = self._float(s.get("recent_profit_factor", 0.0), 0.0)
+            if perf_trades >= int(settings.performance_gate_trades) and perf_factor < float(settings.performance_gate_profit_factor):
+                return (False, f"strategy performance gate active (profit factor {perf_factor:.2f})")
 
             if daily_pnl <= -settings.daily_loss_limit_usd:
 
