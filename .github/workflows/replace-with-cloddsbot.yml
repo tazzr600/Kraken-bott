@@ -23,7 +23,7 @@ jobs:
           set -e
           git clone --depth 1 --branch main https://github.com/alsk1992/CloddsBot.git /tmp/CloddsBot
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          tar --exclude=.git -C /tmp/CloddsBot -cf - . | tar -xf -
+          tar --exclude=.git --exclude='.github/workflows' -C /tmp/CloddsBot -cf - . | tar -xf -
           rm -rf /tmp/CloddsBot
 
       - name: Commit and push replacement
