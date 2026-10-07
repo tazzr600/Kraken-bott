@@ -1881,152 +1881,103 @@ class KrakenBot:
         positions = get_positions()
 
         if not positions:
-
             self.position_signal = None
             return False
 
-        # HARD RULE: one position.
+        # ONE POSITION AT A TIME.
         position = positions[0]
-
         symbol = position["symbol"]
 
-        # =====================================================
-        # CURRENT PRICE
-        # =====================================================
-
         try:
-
             ticker = await asyncio.to_thread(
                 self.kraken.fetch_ticker,
                 symbol,
             )
-
             price = self._float(
                 ticker.get("bid")
                 or ticker.get("last")
             )
-
         except Exception as exc:
-
             print(
                 f"POSITION PRICE ERROR {symbol}: "
                 f"{type(exc).__name__}: {exc}"
             )
-
             return False
 
         if price <= 0:
             return False
 
-        # =====================================================
-        # EMERGENCY STOP
-        # =====================================================
-
-        stop_price = self._float(
-            position.get(
-                "stop_price",
-                0,
-            )
+        entry_price = self._float(
+            position.get("entry_price", 0)
         )
 
-        if (
-            stop_price > 0
-            and
-            price <= stop_price
-        ):
+        # -----------------------------------------------------
+        # HARD PROFIT-FIRST EXIT
+        # -----------------------------------------------------
+        # Do not rotate or AI-exit a losing position. A normal
+        # position stays open until it is profitable, reaches
+        # the configured take-profit, or hits the emergency stop.
+        #
+        # This gives the PAPER day-trader the requested:
+        # BUY -> WAIT FOR PROFIT -> SELL -> BUY NEXT.
+        # The emergency stop remains the only loss exit.
+        if entry_price > 0:
+            profit_pct = (
+                price / entry_price
+                - 1.0
+            )
 
+            target_pct = max(
+                0.0,
+                float(settings.take_profit_pct),
+            )
+
+            if target_pct > 0 and profit_pct >= target_pct:
+                result = await self.exit_position(
+                    position,
+                    "take-profit reached",
+                    apply_cooldown=False,
+                )
+                return bool(result.get("ok"))
+
+            # Never use AI rotation to close a losing/flat trade.
+            # If profitable but below target, continue holding for
+            # the configured target.
+            if profit_pct <= 0:
+                self.last_position_reason = (
+                    f"holding until profitable "
+                    f"(P&L {profit_pct * 100:.3f}%)"
+                )
+                return False
+
+        # -----------------------------------------------------
+        # EMERGENCY STOP
+        # -----------------------------------------------------
+        stop_price = self._float(
+            position.get("stop_price", 0)
+        )
+
+        if stop_price > 0 and price <= stop_price:
             result = await self.exit_position(
                 position,
                 "emergency stop loss",
                 apply_cooldown=True,
             )
-
-            return bool(
-                result.get("ok")
-            )
-
-        # =====================================================
-        # TAKE-PROFIT BACKSTOP
-        # =====================================================
-        #
-        # AI remains the primary exit engine, but a configured
-        # take-profit is a deterministic safety backstop.
-
-        entry_price = self._float(
-            position.get("entry_price", 0)
-        )
-
-        if (
-            entry_price > 0
-            and settings.take_profit_pct > 0
-            and price >= (
-                entry_price
-                * (1.0 + settings.take_profit_pct)
-            )
-        ):
-            result = await self.exit_position(
-                position,
-                "take-profit backstop",
-                apply_cooldown=False,
-            )
-
             return bool(result.get("ok"))
 
-        # =====================================================
-        # MAX-HOLD BACKSTOP
-        # =====================================================
-
-        opened_ts = self._float(
-            position.get("opened_ts", 0)
-        )
-
-        max_hold_seconds = (
-            max(0, int(settings.max_hold_minutes))
-            * 60
-        )
-
-        if (
-            opened_ts > 0
-            and max_hold_seconds > 0
-            and time.time() - opened_ts >= max_hold_seconds
-        ):
-            result = await self.exit_position(
-                position,
-                "maximum hold-time backstop",
-                apply_cooldown=True,
+        # -----------------------------------------------------
+        # PROFIT PROTECTION
+        # -----------------------------------------------------
+        # Once the trade is positive, keep holding for take profit.
+        # Do not let the AI rotate it out early.
+        if entry_price > 0 and price > entry_price:
+            self.last_position_reason = (
+                f"holding profitable position "
+                f"({(price / entry_price - 1.0) * 100:.3f}%) "
+                f"until take profit"
             )
 
-            return bool(result.get("ok"))
-
-        # =====================================================
-        # AI POSITION ANALYSIS
-        # =====================================================
-
-        still_has_edge = (
-            await self.analyze_current_position(
-                position,
-                best_alternative,
-            )
-        )
-
-        if still_has_edge:
-            return False
-
-        reason = (
-            self.last_position_reason
-            or
-            "AI edge lost"
-        )
-
-        result = await self.exit_position(
-            position,
-            reason,
-            apply_cooldown=False,
-        )
-
-        return bool(
-            result.get("ok")
-        )
+        return False
 
     # =========================================================
     # PAPER ADAPTIVE SIGNAL
