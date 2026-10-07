@@ -2941,6 +2941,15 @@ class KrakenBot:
                     "PAPER",
                 ),
 
+            "paper_adaptive_entry": bool(
+                settings.paper_adaptive_entry
+                and self.kraken.is_paper
+            ),
+
+            "max_hold_minutes": settings.max_hold_minutes,
+            "daily_loss_limit_usd": settings.daily_loss_limit_usd,
+            "max_trades_per_day": settings.max_trades_per_day,
+
         }
 
     # =========================================================
