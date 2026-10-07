@@ -1,4 +1,4 @@
-import json, math, time, urllib.parse, urllib.request
+import json, math, time, urllib.parse, urllib.request, urllib.error
 from decimal import Decimal
 from .models import Book, Market, Underlying
 
@@ -6,12 +6,28 @@ GAMMA = "https://gamma-api.polymarket.com"
 CLOB = "https://clob.polymarket.com"
 BINANCE = "https://api.binance.com"
 FUTURES = "https://fapi.binance.com"
+GEOBLOCK = "https://polymarket.com/api/geoblock"
+
+class GeoBlockedError(RuntimeError):
+    """Raised when the Polymarket CLOB rejects the request with HTTP 451."""
+    pass
 
 class Http:
     def get_json(self, url, timeout=5):
-        req = urllib.request.Request(url, headers={"User-Agent": "polymarket-paper-engine/2.0"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.loads(r.read().decode())
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; PolymarketPaperEngine/2.1)",
+                "Accept": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 451:
+                raise GeoBlockedError(f"HTTP 451 from {urllib.parse.urlsplit(url).netloc}") from exc
+            raise
 
 def parse_json(value, default):
     if isinstance(value, str):
@@ -47,6 +63,11 @@ class PolymarketData:
         self.book_cache_ts = {}
         self.underlying_cache = {}
         self.underlying_cache_ts = {}
+        self.clob_blocked = False
+        self.clob_error = None
+        self.clob_retry_at = 0.0
+        self.geoblock_cache = None
+        self.geoblock_cache_ts = 0.0
 
     def discover(self):
         now = int(time.time())
@@ -96,11 +117,41 @@ class PolymarketData:
         self.market_cache_ts = now
         return self.market_cache
 
+    def geoblock(self):
+        now = time.time()
+        if self.geoblock_cache is not None and now - self.geoblock_cache_ts < 60:
+            return self.geoblock_cache
+        try:
+            value = self.http.get_json(GEOBLOCK, timeout=5)
+        except Exception as exc:
+            value = {"blocked": None, "error": str(exc)}
+        self.geoblock_cache = value
+        self.geoblock_cache_ts = now
+        return value
+
+    def clob_status(self):
+        if self.clob_blocked and time.time() < self.clob_retry_at:
+            return {"available": False, "reason": self.clob_error or "HTTP 451", "retry_at": self.clob_retry_at}
+        if self.clob_blocked and time.time() >= self.clob_retry_at:
+            self.clob_blocked = False
+            self.clob_error = None
+        return {"available": True, "reason": None, "retry_at": None}
+
     def book(self, token):
         now = time.time()
+        if self.clob_blocked and now < self.clob_retry_at:
+            raise GeoBlockedError(self.clob_error or "CLOB unavailable")
         if token in self.book_cache and now - self.book_cache_ts.get(token, 0) < 0.65:
             return self.book_cache[token]
-        raw = self.http.get_json(f"{CLOB}/book?{urllib.parse.urlencode({'token_id': token})}")
+        try:
+            raw = self.http.get_json(f"{CLOB}/book?{urllib.parse.urlencode({'token_id': token})}")
+        except GeoBlockedError as exc:
+            self.clob_blocked = True
+            self.clob_error = str(exc)
+            self.clob_retry_at = time.time() + 60
+            raise
+        self.clob_blocked = False
+        self.clob_error = None
         asks = sorted([(Decimal(str(x["price"])), Decimal(str(x["size"]))) for x in raw.get("asks", [])], key=lambda x: x[0])
         bids = sorted([(Decimal(str(x["price"])), Decimal(str(x["size"]))) for x in raw.get("bids", [])], key=lambda x: x[0], reverse=True)
         book = Book(
