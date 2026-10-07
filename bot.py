@@ -825,11 +825,12 @@ class KrakenBot:
                 f"{bearish_reversal:.3f}"
             )
 
-        if reward_risk < 1.0:
+        if reward_risk < settings.min_reward_risk:
 
             reasons.append(
                 f"dynamic reward/risk="
                 f"{reward_risk:.2f}"
+                f" < minimum={settings.min_reward_risk:.2f}"
             )
 
         if score <= self.MIN_REENTRY_EDGE:
