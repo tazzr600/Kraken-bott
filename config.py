@@ -139,6 +139,15 @@ class Settings:
         "USD,USDT,USDC"
     )
 
+    # Quotes the execution engine is actually funded to trade.
+    # Keep this separate from scanner discovery so the dashboard can
+    # see more markets without accidentally trying to spend the wrong
+    # quote balance.
+    trade_quotes: str = clean_env(
+        "TRADE_QUOTES",
+        "USD"
+    )
+
     # =========================================================
     # MACHINE LEARNING
     # =========================================================
@@ -355,6 +364,14 @@ class Settings:
         return [
             x.strip().upper()
             for x in self.allowed_quotes.split(",")
+            if x.strip()
+        ]
+
+    @property
+    def trade_quote_list(self):
+        return [
+            x.strip().upper()
+            for x in self.trade_quotes.split(",")
             if x.strip()
         ]
 
