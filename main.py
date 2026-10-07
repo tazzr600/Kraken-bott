@@ -2380,34 +2380,25 @@ async def startup_event():
 
     if autonomous:
 
-        if kraken.get(
-            "connected",
-            False,
-        ):
+        # Start the autonomous PAPER engine even if the initial
+        # connectivity probe is temporarily unavailable.
+        # The bot loop is resilient to individual market/API
+        # failures and will retry on the next scan cycle.
+        success, message = (
+            start_bot_thread()
+        )
 
-            success, message = (
-                start_bot_thread()
+        if success:
+
+            logger.info(
+                message
             )
-
-            if success:
-
-                logger.info(
-                    message
-                )
-
-            else:
-
-                logger.error(
-                    "Autonomous startup failed: %s",
-                    message,
-                )
 
         else:
 
-            logger.warning(
-                "Autonomous mode enabled, but "
-                "Kraken public market data is unavailable. "
-                "Worker not started."
+            logger.error(
+                "Autonomous startup failed: %s",
+                message,
             )
 
     else:
