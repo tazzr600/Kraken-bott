@@ -290,30 +290,13 @@ class KrakenBot:
     # =========================================================
 
     def _today_trade_metrics(self):
-        # Risk limits use completed SELL trades from the current
-        # calendar day, not a rolling 24-hour window.
-        now = time.time()
-        local = time.localtime(now)
-        day_start = time.mktime((
-            local.tm_year, local.tm_mon, local.tm_mday,
-            0, 0, 0, local.tm_wday, local.tm_yday, local.tm_isdst,
-        ))
-
-        daily_pnl = 0.0
-        trades_today = 0
-
-        for trade in get_trades(limit=5000):
-            if str(trade.get("side", "")).upper() != "SELL":
-                continue
-            if str(trade.get("status", "")).upper() != "CLOSED":
-                continue
-            if self._float(trade.get("ts"), 0.0) < day_start:
-                continue
-
-            trades_today += 1
-            daily_pnl += self._float(trade.get("pnl"), 0.0)
-
-        return daily_pnl, trades_today
+        # stats() computes the current local calendar-day window directly
+        # from completed SELL trades.
+        current = stats()
+        return (
+            self._float(current.get("daily_pnl"), 0.0),
+            int(current.get("trades_today", 0) or 0),
+        )
 
     def _can_trade(self):
 
