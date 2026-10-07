@@ -1226,10 +1226,42 @@ async def api_status():
     # --------------------------------------------------------
     # KRAKEN
     # --------------------------------------------------------
+    #
+    # Status must be non-blocking. Do not call Kraken's network
+    # API on every dashboard refresh. The worker updates this
+    # connection state during normal operation.
+    trader = get_trader(bot)
 
-    kraken = test_kraken_connection(
-        bot
+    kraken = call_method(
+        trader,
+        "connection_status",
+        {
+            "connected": bool(
+                getattr(
+                    trader,
+                    "connected",
+                    False,
+                )
+            ) if trader is not None else False,
+            "authenticated": bool(
+                getattr(
+                    trader,
+                    "authenticated",
+                    False,
+                )
+            ) if trader is not None else False,
+            "mode": get_runtime_mode(bot),
+        },
     )
+
+    if not isinstance(kraken, dict):
+        kraken = {
+            "connected": False,
+            "authenticated": False,
+            "mode": get_runtime_mode(bot),
+        }
+
+    kraken["mode"] = get_runtime_mode(bot)
 
     # --------------------------------------------------------
     # BOT
@@ -1421,10 +1453,23 @@ async def api_start():
             bot
         ),
 
+        # Do not perform a network/API call here. The Start
+        # endpoint must return immediately after launching the worker.
         "kraken": (
-            test_kraken_connection(
-                bot
+            call_method(
+                get_trader(bot),
+                "connection_status",
+                {
+                    "connected": False,
+                    "authenticated": False,
+                    "mode": get_runtime_mode(bot),
+                },
             )
+            or {
+                "connected": False,
+                "authenticated": False,
+                "mode": get_runtime_mode(bot),
+            }
         ),
 
         "error": (
