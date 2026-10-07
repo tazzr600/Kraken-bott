@@ -1063,31 +1063,34 @@ def stats() -> Dict[str, Any]:
         ).fetchone()
 
         # ----------------------------------------------------
-        # LAST 24 HOURS
+        # CURRENT CALENDAR DAY
         # ----------------------------------------------------
+        #
+        # Daily risk is based on completed SELL trades since
+        # local midnight. BUY entries are not completed trades.
+
+        local_now = time.localtime()
+        day_start = time.mktime((
+            local_now.tm_year,
+            local_now.tm_mon,
+            local_now.tm_mday,
+            0, 0, 0,
+            local_now.tm_wday,
+            local_now.tm_yday,
+            local_now.tm_isdst,
+        ))
 
         day = connection.execute(
             """
             SELECT
-
-                COALESCE(
-                    SUM(pnl),
-                    0
-                ) AS pnl,
-
+                COALESCE(SUM(pnl), 0) AS pnl,
                 COUNT(*) AS n
-
             FROM trades
-
-            WHERE UPPER(
-                COALESCE(status, '')
-            ) = 'CLOSED'
-
-            AND ts >= ?
+            WHERE UPPER(COALESCE(status, '')) = 'CLOSED'
+              AND UPPER(COALESCE(side, '')) = 'SELL'
+              AND ts >= ?
             """,
-            (
-                time.time() - 86400,
-            ),
+            (day_start,),
         ).fetchone()
 
         # ----------------------------------------------------
@@ -1237,6 +1240,17 @@ def stats() -> Dict[str, Any]:
                 else 0.0
             ),
 
+        "daily_pnl":
+            _safe_float(
+                day["pnl"]
+            ),
+
+        "trades_today":
+            _safe_int(
+                day["n"]
+            ),
+
+        # Retain legacy fields for dashboard compatibility.
         "last_24h_pnl":
             _safe_float(
                 day["pnl"]
@@ -1500,14 +1514,14 @@ def equity_history(
 
 def reset_daily_state_if_needed() -> None:
     """
-    Reset daily counters when a new UTC day begins.
+    Reset daily counters when a new local calendar day begins.
 
     This does NOT reset the paper account.
     """
 
     today = time.strftime(
         "%Y-%m-%d",
-        time.gmtime(),
+        time.localtime(),
     )
 
     saved_date = get_risk(
