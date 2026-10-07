@@ -868,6 +868,24 @@ class KrakenBot:
                 f"low positive precision={positive_precision:.3f}"
             )
 
+        validation_expectancy = self._float(
+            prediction.get("validation_expectancy", 0.0)
+        )
+        validation_profit_factor = self._float(
+            prediction.get("validation_profit_factor", 0.0)
+        )
+        validation_trades = int(
+            self._float(prediction.get("validation_trades", 0))
+        )
+        if validation_trades >= 10 and validation_expectancy <= 0:
+            reasons.append(
+                f"negative walk-forward expectancy={validation_expectancy:.4f}"
+            )
+        if validation_trades >= 10 and validation_profit_factor < 1.05:
+            reasons.append(
+                f"weak walk-forward profit factor={validation_profit_factor:.2f}"
+            )
+
         samples = int(
             self._float(
                 getattr(
@@ -974,6 +992,12 @@ class KrakenBot:
             "accuracy": accuracy,
 
             "positive_precision": positive_precision,
+
+            "validation_expectancy": validation_expectancy,
+
+            "validation_profit_factor": validation_profit_factor,
+
+            "validation_trades": validation_trades,
 
             "samples": samples,
 
