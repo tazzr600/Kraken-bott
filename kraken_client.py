@@ -1146,6 +1146,33 @@ class KrakenTrader:
 
         if not self.live_orders_enabled:
 
+            # Model a conservative paper fill instead of pretending the
+            # market order fills exactly at the displayed ask.  This keeps
+            # PAPER P&L aligned with the configured execution-cost model.
+            paper_slippage = max(
+                0.0,
+                float(
+                    getattr(
+                        self.settings,
+                        "slippage_buffer_pct",
+                        0.0,
+                    )
+                ) / 100.0,
+            )
+            paper_price = ask * (1.0 + paper_slippage)
+            paper_amount = float(
+                self._normalize_amount(
+                    symbol,
+                    quote_amount / paper_price,
+                )
+            )
+            paper_cost = paper_amount * paper_price
+
+            if paper_amount <= 0:
+                raise RuntimeError(
+                    f"Calculated PAPER order amount is too small for {symbol}."
+                )
+
             result = {
 
                 "ok":
@@ -1164,22 +1191,22 @@ class KrakenTrader:
                     "buy",
 
                 "amount":
-                    amount,
+                    paper_amount,
 
                 "quote_amount":
-                    estimated_cost,
+                    paper_cost,
 
                 "requested_quote_amount":
                     quote_amount,
 
                 "price":
-                    ask,
+                    paper_price,
 
                 "average":
-                    ask,
+                    paper_price,
 
                 "filled":
-                    amount,
+                    paper_amount,
 
                 "status":
                     "simulated",
@@ -1485,6 +1512,32 @@ class KrakenTrader:
 
         if not self.live_orders_enabled:
 
+            # Mirror adverse execution on the exit side as well: a paper
+            # market sell should fill below the displayed bid.
+            paper_slippage = max(
+                0.0,
+                float(
+                    getattr(
+                        self.settings,
+                        "slippage_buffer_pct",
+                        0.0,
+                    )
+                ) / 100.0,
+            )
+            paper_price = bid * (1.0 - paper_slippage)
+            paper_amount = float(
+                self._normalize_amount(
+                    symbol,
+                    normalized_amount,
+                )
+            )
+            paper_proceeds = paper_amount * paper_price
+
+            if paper_amount <= 0:
+                raise RuntimeError(
+                    f"Calculated PAPER sell amount is too small for {symbol}."
+                )
+
             result = {
 
                 "ok":
@@ -1503,19 +1556,19 @@ class KrakenTrader:
                     "sell",
 
                 "amount":
-                    normalized_amount,
+                    paper_amount,
 
                 "filled":
-                    normalized_amount,
+                    paper_amount,
 
                 "price":
-                    bid,
+                    paper_price,
 
                 "average":
-                    bid,
+                    paper_price,
 
                 "quote_amount":
-                    estimated_value,
+                    paper_proceeds,
 
                 "status":
                     "simulated",
