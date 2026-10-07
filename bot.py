@@ -1966,6 +1966,39 @@ class KrakenBot:
             return bool(result.get("ok"))
 
         # -----------------------------------------------------
+        # MAX HOLD -> ROTATE
+        # -----------------------------------------------------
+        # If the trade has not reached take profit within the
+        # day-trading window, close it and immediately allow the
+        # main loop to scan for the next setup.
+        opened_ts = self._float(
+            position.get("opened_ts", 0)
+        )
+        max_hold_seconds = max(
+            0,
+            int(settings.max_hold_minutes),
+        ) * 60
+
+        if (
+            opened_ts > 0
+            and max_hold_seconds > 0
+            and time.time() - opened_ts >= max_hold_seconds
+        ):
+            reason = (
+                "max hold reached; "
+                f"rotating to next day-trade "
+                f"(P&L {((price / entry_price - 1.0) * 100):.3f}%)"
+                if entry_price > 0
+                else "max hold reached; rotating to next day-trade"
+            )
+            result = await self.exit_position(
+                position,
+                reason,
+                apply_cooldown=False,
+            )
+            return bool(result.get("ok"))
+
+        # -----------------------------------------------------
         # PROFIT PROTECTION
         # -----------------------------------------------------
         # Once the trade is positive, keep holding for take profit.
