@@ -1,130 +1,18 @@
-# Kraken Day Trader
+# Polymarket Two-Sided Pair Bot — Railway Ready
 
-A PAPER-first Kraken spot day-trading bot with:
+This rebuild implements the paired-inventory concept for binary Polymarket markets.
 
-- Kraken market discovery and liquidity filtering
-- 1-minute OHLCV analysis with short-horizon forecasting
-- ensemble machine-learning signal generation
-- technical strategy scoring and confirmation
-- one-position-at-a-time execution
-- emergency stop-loss and AI-controlled exits
-- calendar-day realized P&L risk limits
-- calendar-day completed-trade limits
-- consecutive-loss circuit breaker
-- SQLite trade journal and paper account
-- FastAPI dashboard/API
-- Railway/Docker deployment
-- automated syntax and regression verification
+For one binary market:
+- pair_cost = YES best ask + NO best ask
+- gross_edge = 1 - pair_cost
+- net_edge = gross_edge - fee_buffer - slippage_buffer
 
-## Safety defaults
+The bot only attempts equal-size YES/NO pairs when the net edge passes the configured threshold.
 
-The project is intentionally PAPER-first:
+Example: 0.1658 + 0.7810 = 0.9468, giving 0.0532 gross edge per matched pair before fees/slippage.
 
-- `LIVE_TRADING=false`
-- `DRY_RUN=true`
-- runtime mode always starts as `PAPER`
-- LIVE orders require configuration, authentication, and explicit runtime confirmation
+It includes a live Polymarket market scanner, liquidity and short-duration filters, YES/NO order-book reads, pair pricing and sizing, daily spend limits, FAK execution in live mode, SQLite logging, FastAPI dashboard, Railway configuration, and PAPER mode by default.
 
-PAPER mode does not require private Kraken API credentials. Public market data is enough to run the scanner and simulated trading.
+Keep LIVE_TRADING=false while validating. Credentials belong only in Railway environment variables.
 
-**This is not a guaranteed-profit system.** Machine learning is a statistical signal generator, not a prediction guarantee.
-
-## Setup
-
-Copy `.env.example` to `.env` for local use. Keep real API credentials out of Git.
-
-For PAPER mode, API credentials are optional.
-
-For Railway, configure environment variables in Railway's secret/environment settings rather than committing them.
-
-If LIVE trading is ever enabled, use a Kraken API key with only the permissions actually required for trading/read access. Never enable withdrawal permissions.
-
-## Run
-
-```bash
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-Open `/`.
-
-Health endpoint: `/health`
-
-## Verification
-
-```bash
-python -m compileall -q .
-python -m unittest discover -s tests -v
-```
-
-Run both checks locally before deployment. CI is optional and should not be assumed to have run unless a GitHub Actions workflow is present and reports a successful run.
-
-## Risk accounting
-
-Daily loss and daily trade limits use completed SELL trades from the current local calendar day. Rolling 24-hour statistics remain available for dashboard compatibility but are not used for the daily risk gate.
-
-After every completed SELL, the bot synchronizes the persisted trade count, last-trade timestamp, and consecutive-loss state.
-
-## Scanner status
-
-The scanner status exposes:
-
-- markets discovered
-- maximum symbols sent to ML
-- allowed quote currencies
-- liquidity/spread configuration
-- last refresh and scan errors
-
-## Deployment
-
-Railway uses the included Dockerfile and `railway.toml`. The HTTP health check is `/health`.
-
-Keep `LIVE_TRADING=false` and `DRY_RUN=true` until paper performance has been independently validated.
-
-
-## Trading behavior
-
-The bot is designed for fast intraday **Kraken crypto** trading. It uses 1-minute market data by default, refreshes its decision loop frequently, scans a broader liquid-market universe, enters only when the estimated edge is positive after modeled execution costs, and continuously re-evaluates an open position. If the AI direction turns bearish, the expected net edge becomes non-positive, or a bearish reversal is detected, the bot can exit and immediately look for the next qualifying market. Take-profit, stop-loss, and maximum-hold backstops remain enabled.
-
-Kraken provides the real-time crypto markets used by this bot; this repository does not treat U.S. stocks as Kraken-tradable instruments. Stock trading would require a separate brokerage/data integration.
-
-
-## Two-Sided Inventory Engine
-
-The trading engine has been rebuilt around a Kraken-spot adaptation of the
-paired-inventory concept:
-
-- scans liquid markets instead of relying on one hard-coded symbol
-- evaluates the executable bid/ask spread
-- requires the displayed spread to clear the configured execution-cost buffer
-- maintains one bid and one ask quote per selected market
-- skews both quotes when inventory becomes imbalanced
-- cancels stale quotes before replacing them
-- limits the number of simultaneously quoted markets
-- limits per-market order size and daily risk
-- in LIVE spot mode, the sell side is capped by actual free base inventory;
-  the bot never assumes margin/shorting is enabled
-- PAPER remains the default and never sends an exchange order
-
-This is a **market-making/inventory** adaptation, not a literal Polymarket
-outcome-pair arbitrage. Kraken spot does not have YES/NO contracts that both
-settle to $1, so the economically equivalent implementation is two-sided
-bid/ask inventory management.
-
-### Railway safety
-
-Keep:
-
-`LIVE_TRADING=false`
-`DRY_RUN=true`
-
-until paper behavior is validated. API credentials belong only in Railway
-environment variables, never in Git.
-
-### Important
-
-A two-sided spot strategy is not guaranteed profit. The displayed spread can
-disappear, one side can fill without the other, inventory can become
-directional, and fees can exceed the captured spread. The bot therefore uses
-inventory skew, size limits, stale-order cancellation, daily loss controls,
-and a hard paper/live gate.
+Important: the two legs are NOT atomic. A YES fill can happen while NO fails. This is not guaranteed profit. Production hardening must reconcile actual account fills/positions after every live attempt before treating inventory as paired.

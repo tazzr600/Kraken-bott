@@ -1,7 +1,4 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-ccxt
-numpy
-pandas
-scikit-learn
+polymarket-client>=0.4.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
