@@ -136,7 +136,7 @@ class Settings:
     # ALLOWED_QUOTES=USD,USDT,USDC
     allowed_quotes: str = clean_env(
         "ALLOWED_QUOTES",
-        "USD"
+        "USD,USDT,USDC"
     )
 
     # =========================================================
