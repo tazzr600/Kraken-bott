@@ -78,14 +78,14 @@ class Settings:
     candles: int = int(
         clean_env(
             "CANDLES",
-            "720"
+            "360"
         )
     )
 
     scan_seconds: int = int(
         clean_env(
             "SCAN_SECONDS",
-            "10"
+            "15"
         )
     )
 
@@ -107,7 +107,7 @@ class Settings:
     max_scan_symbols: int = int(
         clean_env(
             "MAX_SCAN_SYMBOLS",
-            "30"
+            "12"
         )
     )
 
@@ -153,28 +153,28 @@ class Settings:
     forecast_bars: int = int(
         clean_env(
             "FORECAST_BARS",
-            "2"
+            "5"
         )
     )
 
     min_probability: float = float(
         clean_env(
             "MIN_PROBABILITY",
-            "0.57"
+            "0.54"
         )
     )
 
     min_expected_move: float = float(
         clean_env(
             "MIN_EXPECTED_MOVE",
-            "0.002"
+            "0.001"
         )
     )
 
     min_training_accuracy: float = float(
         clean_env(
             "MIN_TRAINING_ACCURACY",
-            "0.50"
+            "0.48"
         )
     )
 
