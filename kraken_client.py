@@ -1768,6 +1768,93 @@ class KrakenTrader:
         return result
 
     # ============================================================
+    # TWO-SIDED LIMIT ORDERS
+    # ============================================================
+
+    def limit_buy(self, symbol: str, amount: float, price: float) -> Dict[str, Any]:
+        self._ensure_markets()
+        amount = self._normalize_amount(symbol, float(amount))
+        price = float(price)
+        if amount <= 0 or price <= 0:
+            raise ValueError("Invalid limit buy amount or price.")
+
+        limits = self._market_limits(symbol)
+        min_amount = limits.get("min_amount")
+        min_cost = limits.get("min_cost")
+        cost = amount * price
+        if min_amount is not None and amount < float(min_amount):
+            raise RuntimeError(f"Limit buy amount below Kraken minimum for {symbol}.")
+        if min_cost is not None and cost < float(min_cost):
+            raise RuntimeError(f"Limit buy value below Kraken minimum for {symbol}.")
+
+        if not self.live_orders_enabled:
+            result = {
+                "ok": True, "paper": True, "live": False, "symbol": symbol,
+                "side": "buy", "amount": amount, "price": price,
+                "status": "quoted", "order": None,
+            }
+            self.last_order = result
+            return result
+
+        if not self.authenticated:
+            raise RuntimeError("Cannot place live limit buy: authentication not verified.")
+
+        order = self.exchange.create_limit_buy_order(symbol, amount, price)
+        result = {
+            "ok": True, "paper": False, "live": True, "symbol": symbol,
+            "side": "buy", "amount": amount, "price": price,
+            "status": order.get("status"), "order": order,
+        }
+        self.last_order = result
+        return result
+
+    def limit_sell(self, symbol: str, amount: float, price: float) -> Dict[str, Any]:
+        self._ensure_markets()
+        amount = self._normalize_amount(symbol, float(amount))
+        price = float(price)
+        if amount <= 0 or price <= 0:
+            raise ValueError("Invalid limit sell amount or price.")
+
+        limits = self._market_limits(symbol)
+        min_amount = limits.get("min_amount")
+        min_cost = limits.get("min_cost")
+        cost = amount * price
+        if min_amount is not None and amount < float(min_amount):
+            raise RuntimeError(f"Limit sell amount below Kraken minimum for {symbol}.")
+        if min_cost is not None and cost < float(min_cost):
+            raise RuntimeError(f"Limit sell value below Kraken minimum for {symbol}.")
+
+        if not self.live_orders_enabled:
+            result = {
+                "ok": True, "paper": True, "live": False, "symbol": symbol,
+                "side": "sell", "amount": amount, "price": price,
+                "status": "quoted", "order": None,
+            }
+            self.last_order = result
+            return result
+
+        if not self.authenticated:
+            raise RuntimeError("Cannot place live limit sell: authentication not verified.")
+
+        order = self.exchange.create_limit_sell_order(symbol, amount, price)
+        result = {
+            "ok": True, "paper": False, "live": True, "symbol": symbol,
+            "side": "sell", "amount": amount, "price": price,
+            "status": order.get("status"), "order": order,
+        }
+        self.last_order = result
+        return result
+
+    def cancel_order(self, order_id: str, symbol: str | None = None):
+        if not order_id:
+            return {"ok": True, "status": "no_order"}
+        if not self.live_orders_enabled:
+            return {"ok": True, "paper": True, "status": "cancelled"}
+
+        result = self.exchange.cancel_order(order_id, symbol)
+        return {"ok": True, "paper": False, "status": "cancelled", "result": result}
+
+    # ============================================================
     # SAFE STOP
     # ============================================================
 
