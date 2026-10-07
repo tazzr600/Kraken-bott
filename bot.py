@@ -1961,7 +1961,12 @@ class KrakenBot:
             return False
 
         profit_pct = price / entry_price - 1.0
-        target_pct = max(0.0, float(settings.take_profit_pct))
+        stored_target = self._float(position.get("target_price", 0.0))
+        target_pct = (
+            max(0.0, stored_target / entry_price - 1.0)
+            if stored_target > 0
+            else max(0.0, float(settings.take_profit_pct))
+        )
 
         # 1. Emergency stop always has priority over everything else.
         stop_price = self._float(position.get("stop_price", 0))
