@@ -835,15 +835,28 @@ class KrakenMarketScanner:
 
     def status(self):
 
-        counts = {
+        discovered_counts = {
+            "CRYPTO": 0,
+            "FOREX": 0,
+            "XSTOCKS": 0,
+        }
+
+        for market in self.markets.values():
+            if isinstance(market, dict):
+                market_type = self._market_type(market)
+                discovered_counts[market_type] = (
+                    discovered_counts.get(market_type, 0) + 1
+                )
+
+        liquid_counts = {
             "CRYPTO": 0,
             "FOREX": 0,
             "XSTOCKS": 0,
         }
 
         for candidate in self.universe:
-            counts[candidate.market_type] = (
-                counts.get(candidate.market_type, 0) + 1
+            liquid_counts[candidate.market_type] = (
+                liquid_counts.get(candidate.market_type, 0) + 1
             )
 
         return {
@@ -861,13 +874,22 @@ class KrakenMarketScanner:
                 len(self.markets),
 
             "crypto_markets":
-                counts["CRYPTO"],
+                discovered_counts["CRYPTO"],
 
             "forex_markets":
-                counts["FOREX"],
+                discovered_counts["FOREX"],
 
             "xstocks_markets":
-                counts["XSTOCKS"],
+                discovered_counts["XSTOCKS"],
+
+            "liquid_crypto_markets":
+                liquid_counts["CRYPTO"],
+
+            "liquid_forex_markets":
+                liquid_counts["FOREX"],
+
+            "liquid_xstocks_markets":
+                liquid_counts["XSTOCKS"],
 
             "futures_markets":
                 len(self.futures_markets),
