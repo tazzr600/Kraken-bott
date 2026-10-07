@@ -347,6 +347,30 @@ class Settings:
         )
     )
 
+    # Profit protection activates only after price has moved far enough
+    # to cover the modeled round-trip execution cost. The extra buffer
+    # prevents a tiny gross gain from being treated as a profitable trade.
+    profit_lock_trigger_pct: float = float(
+        clean_env(
+            "PROFIT_LOCK_TRIGGER_PCT",
+            "2.50"
+        )
+    )
+
+    profit_lock_trigger_buffer_pct: float = float(
+        clean_env(
+            "PROFIT_LOCK_TRIGGER_BUFFER_PCT",
+            "0.25"
+        )
+    )
+
+    profit_lock_min_net_pct: float = float(
+        clean_env(
+            "PROFIT_LOCK_MIN_NET_PCT",
+            "0.25"
+        )
+    )
+
     # =========================================================
     # SYMBOL HELPERS
     # =========================================================
