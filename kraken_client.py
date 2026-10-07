@@ -1767,6 +1767,16 @@ class KrakenTrader:
 
         return result
 
+    def free_base(self, symbol: str) -> float:
+        self._ensure_markets()
+        market = self.exchange.market(symbol)
+        base = str(market.get("base") or "").upper()
+        if not base:
+            return 0.0
+        balance = self.fetch_balance()
+        free = balance.get("free", {}) or {}
+        return float(free.get(base) or 0.0)
+
     # ============================================================
     # TWO-SIDED LIMIT ORDERS
     # ============================================================
