@@ -2625,8 +2625,36 @@ class KrakenBot:
                         # =================================================
                         # MANAGE CURRENT POSITION
                         # =================================================
+                        #
+                        # Hard price/time exits run first. If the position
+                        # survives those backstops, run the AI exit/rotation
+                        # decision. This keeps emergency protection ahead of
+                        # discretionary exits while actually activating the
+                        # AI rotation logic on every scan cycle.
 
                         await self.manage_positions()
+
+                        if not self.running:
+                            break
+
+                        if self._current_position() is not None:
+                            position_should_hold = (
+                                await self.analyze_current_position(
+                                    self._current_position(),
+                                    best_alternative=best_alternative,
+                                )
+                            )
+
+                            if (
+                                not position_should_hold
+                                and self._current_position() is not None
+                            ):
+                                await self.exit_position(
+                                    self._current_position(),
+                                    self.last_position_reason
+                                    or "AI exit/rotation signal",
+                                    apply_cooldown=False,
+                                )
 
                         if not self.running:
                             break
