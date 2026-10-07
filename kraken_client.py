@@ -1355,6 +1355,12 @@ class KrakenTrader:
             actual_cost
         )
 
+        fee_quote = self._order_fee_quote(
+            order,
+            symbol,
+            average,
+        )
+
         result = {
 
             "ok":
@@ -1380,6 +1386,9 @@ class KrakenTrader:
 
             "quote_amount":
                 actual_cost,
+
+            "fee_quote":
+                fee_quote,
 
             "requested_quote_amount":
                 quote_amount,
@@ -1703,6 +1712,12 @@ class KrakenTrader:
             actual_proceeds
         )
 
+        fee_quote = self._order_fee_quote(
+            order,
+            symbol,
+            average,
+        )
+
         result = {
 
             "ok":
@@ -1734,6 +1749,9 @@ class KrakenTrader:
 
             "quote_amount":
                 actual_proceeds,
+
+            "fee_quote":
+                fee_quote,
 
             "status":
                 order.get(
