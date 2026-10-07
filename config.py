@@ -153,7 +153,7 @@ class Settings:
     forecast_bars: int = int(
         clean_env(
             "FORECAST_BARS",
-            "2"
+            "5"
         )
     )
 
@@ -179,8 +179,7 @@ class Settings:
     )
 
     # Minimum expected reward relative to the emergency stop.
-    # Kept below 1.0 so short-horizon PAPER entries are not
-    # blocked by an overly strict risk/reward gate.
+    # Entries must have enough projected upside to justify the risk and fees.
     min_reward_risk: float = float(
         clean_env(
             "MIN_REWARD_RISK",
@@ -242,21 +241,21 @@ class Settings:
     stop_loss_pct: float = float(
         clean_env(
             "STOP_LOSS_PCT",
-            "0.008"
+            "0.010"
         )
     )
 
     take_profit_pct: float = float(
         clean_env(
             "TAKE_PROFIT_PCT",
-            "0.022"
+            "0.035"
         )
     )
 
     max_hold_minutes: int = int(
         clean_env(
             "MAX_HOLD_MINUTES",
-            "2"
+            "5"
         )
     )
 
