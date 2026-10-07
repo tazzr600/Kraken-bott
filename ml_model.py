@@ -32,6 +32,12 @@ class ModelState:
 
     positive_precision: float = 0.0
 
+    validation_expectancy: float = 0.0
+
+    validation_profit_factor: float = 0.0
+
+    validation_trades: int = 0
+
     samples: int = 0
 
     trained_at: float = 0.0
@@ -1878,6 +1884,19 @@ def train_model(
         y_test.to_numpy()[positive_mask].mean()
     ) if positive_mask.any() else 0.0
 
+    test_future = future_return.loc[X_test.index].to_numpy(dtype=float)
+    selected_future = test_future[positive_mask]
+    selected_net = selected_future - float(trading_cost)
+    validation_expectancy = float(selected_net.mean()) if len(selected_net) else 0.0
+    validation_positive = selected_net[selected_net > 0]
+    validation_negative = selected_net[selected_net < 0]
+    validation_profit_factor = (
+        float(validation_positive.sum() / abs(validation_negative.sum()))
+        if len(validation_negative) and abs(validation_negative.sum()) > 0
+        else (float("inf") if len(validation_positive) else 0.0)
+    )
+    validation_trades = int(len(selected_net))
+
     # ========================================================
     # ENSEMBLE
     # ========================================================
@@ -1955,6 +1974,9 @@ def train_model(
 
         accuracy=accuracy,
         positive_precision=positive_precision,
+        validation_expectancy=validation_expectancy,
+        validation_profit_factor=validation_profit_factor,
+        validation_trades=validation_trades,
 
         samples=len(training),
 
@@ -2359,6 +2381,15 @@ def predict(
 
         "positive_precision":
             getattr(state, "positive_precision", 0.0),
+
+        "validation_expectancy":
+            getattr(state, "validation_expectancy", 0.0),
+
+        "validation_profit_factor":
+            getattr(state, "validation_profit_factor", 0.0),
+
+        "validation_trades":
+            getattr(state, "validation_trades", 0),
 
         "samples":
             state.samples,
