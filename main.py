@@ -991,7 +991,17 @@ def start_bot_thread() -> tuple[bool, str]:
             bot = current_bot
 
             # ALWAYS PAPER after restart/start.
-            force_paper(bot)
+            paper_forced = force_paper(bot)
+
+            if not paper_forced or get_runtime_mode(bot) != "PAPER":
+                _worker_error = (
+                    "Safety check failed: bot could not be forced into PAPER mode."
+                )
+                logger.error(_worker_error)
+                return (
+                    False,
+                    _worker_error,
+                )
 
             logger.info(
                 "Worker mode: %s",
@@ -1206,10 +1216,21 @@ async def root():
 @app.get("/health")
 async def health():
 
+    bot = get_bot()
+
+    running = (
+        bot_is_running(bot)
+        or worker_alive()
+        or _worker_running
+    )
+
     return {
         "ok": True,
         "service": "kraken-day-trader",
+        "mode": get_runtime_mode(bot),
         "worker_running": worker_alive(),
+        "bot_running": running,
+        "worker_error": _worker_error,
         "timestamp": now_ts(),
     }
 
@@ -1530,9 +1551,24 @@ async def api_get_trading_mode():
         bot
     )
 
-    kraken = test_kraken_connection(
-        bot
+    # Keep this endpoint fast and non-blocking. Do not perform
+    # load_markets()/network I/O just to render the mode panel.
+    kraken = call_method(
+        trader,
+        "connection_status",
+        {
+            "connected": False,
+            "authenticated": False,
+            "mode": get_runtime_mode(bot),
+        },
     )
+
+    if not isinstance(kraken, dict):
+        kraken = {
+            "connected": False,
+            "authenticated": False,
+            "mode": get_runtime_mode(bot),
+        }
 
     return json_safe({
 
