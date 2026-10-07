@@ -1002,25 +1002,38 @@ def start_bot_thread() -> tuple[bool, str]:
             # TEST KRAKEN
             # ------------------------------------------------
 
-            connection = (
-                test_kraken_connection(
-                    bot
+            connection = None
+
+            # Public Kraken connectivity can fail transiently.
+            # Retry before refusing to start PAPER mode.
+            for attempt in range(3):
+                connection = test_kraken_connection(bot)
+
+                logger.info(
+                    "Kraken startup status (attempt %s/3): %s",
+                    attempt + 1,
+                    connection,
                 )
-            )
 
-            logger.info(
-                "Kraken startup status: %s",
-                connection,
-            )
+                if connection.get("connected", False):
+                    break
 
-            if not connection.get(
+                if attempt < 2:
+                    time.sleep(1.0)
+
+            if not connection or not connection.get(
                 "connected",
                 False,
             ):
+                detail = (
+                    connection.get("error")
+                    or connection.get("connection_error")
+                    or "Unknown Kraken public connection error."
+                )
 
                 return (
                     False,
-                    "Kraken public market-data connection failed.",
+                    f"Kraken public market-data connection failed: {detail}",
                 )
 
             # PAPER mode intentionally does not require private
@@ -1410,7 +1423,14 @@ async def api_start():
             )
         ),
 
-        "error": _worker_error,
+        "error": (
+            _worker_error
+            or (
+                None
+                if success
+                else message
+            )
+        ),
     })
 
 
