@@ -1873,16 +1873,36 @@ class KrakenBot:
     # MANAGE POSITION
     # =========================================================
 
-    async def manage_positions(self, price: float) -> bool:
-        """Manage the active day-trade: stop, take profit, or rotate after max hold.
+    async def manage_positions(self, price: float | None = None) -> bool:
+        """Manage the active short-term day trade.
 
-        The position timer always applies, including while the trade is losing.
-        This keeps the bot in a true short-term day-trading rotation:
-        BUY -> MANAGE -> SELL -> SCAN -> BUY.
+        Priority:
+        1) emergency stop
+        2) take profit
+        3) maximum hold rotation
+        4) otherwise hold and continue scanning
+
+        The maximum-hold timer applies even to losing/flat trades so capital
+        cannot become trapped indefinitely.
         """
-        position = self.position
+        position = self._current_position()
         if not position:
             return False
+
+        if price is None or price <= 0:
+            try:
+                ticker = await asyncio.to_thread(
+                    self.kraken.fetch_ticker,
+                    position["symbol"],
+                )
+                price = self._float(
+                    ticker.get("bid") or ticker.get("last")
+                )
+            except Exception as exc:
+                self.last_position_reason = (
+                    f"price refresh failed: {type(exc).__name__}: {exc}"
+                )
+                return False
 
         entry_price = self._float(position.get("entry_price", 0))
         if entry_price <= 0 or price <= 0:
@@ -2450,10 +2470,10 @@ class KrakenBot:
             "EMERGENCY STOP LOSS: ENABLED"
         )
         print(
-            "FIXED TAKE PROFIT: DISABLED"
+            f"TAKE PROFIT: {settings.take_profit_pct * 100:.3f}%"
         )
         print(
-            "MAX HOLD EXIT: DISABLED"
+            f"MAX HOLD: {settings.max_hold_minutes} MINUTES"
         )
         print("=" * 60)
 
@@ -2521,9 +2541,7 @@ class KrakenBot:
                         # MANAGE CURRENT POSITION
                         # =================================================
 
-                        await self.manage_positions(
-                            best_alternative
-                        )
+                        await self.manage_positions()
 
                         if not self.running:
                             break
@@ -2848,10 +2866,19 @@ class KrakenBot:
                         settings.stop_loss_pct,
 
                     "fixed_take_profit":
-                        False,
+                        settings.take_profit_pct > 0,
 
                     "max_hold":
-                        False,
+                        settings.max_hold_minutes > 0,
+
+                    "max_hold_minutes":
+                        settings.max_hold_minutes,
+
+                    "take_profit_pct":
+                        settings.take_profit_pct,
+
+                    "stop_loss_pct":
+                        settings.stop_loss_pct,
                 },
 
         }
