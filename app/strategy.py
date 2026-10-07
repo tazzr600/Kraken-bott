@@ -1,5 +1,6 @@
 import math,time
 from decimal import Decimal
+from .market_data import GeoBlockedError
 from .models import Opportunity,Position,Signal
 
 def normal_cdf(x):
@@ -63,6 +64,8 @@ class Engine:
         return (shares/minimum).to_integral_value()*minimum
 
     def scan(self):
+        if not self.data.clob_status()["available"]:
+            return []
         opportunities=[]
         for market in self.data.discover():
             try:
@@ -80,6 +83,8 @@ class Engine:
                 pair_cost=p.yes_vwap+p.no_vwap if p.yes_shares and p.no_shares else None
                 metadata={"edge":edge,"pair_cost":float(pair_cost) if pair_cost is not None else None}
                 opportunities.append(Opportunity(market,underlying,yes,no,signal,action,outcome,size,ask,size*ask,metadata))
+            except GeoBlockedError:
+                return []
             except Exception as exc:
                 self.log("WARN","SCAN_ERROR",f"{market.slug}: {exc}",market.id)
         return sorted(opportunities,key=lambda x:x.metadata["edge"],reverse=True)
