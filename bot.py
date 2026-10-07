@@ -1873,94 +1873,26 @@ class KrakenBot:
     # MANAGE POSITION
     # =========================================================
 
-    async def manage_positions(
-        self,
-        best_alternative=None,
-    ):
+    async def manage_positions(self, price: float) -> bool:
+        """Manage the active day-trade: stop, take profit, or rotate after max hold.
 
-        positions = get_positions()
-
-        if not positions:
-            self.position_signal = None
+        The position timer always applies, including while the trade is losing.
+        This keeps the bot in a true short-term day-trading rotation:
+        BUY -> MANAGE -> SELL -> SCAN -> BUY.
+        """
+        position = self.position
+        if not position:
             return False
 
-        # ONE POSITION AT A TIME.
-        position = positions[0]
-        symbol = position["symbol"]
-
-        try:
-            ticker = await asyncio.to_thread(
-                self.kraken.fetch_ticker,
-                symbol,
-            )
-            price = self._float(
-                ticker.get("bid")
-                or ticker.get("last")
-            )
-        except Exception as exc:
-            print(
-                f"POSITION PRICE ERROR {symbol}: "
-                f"{type(exc).__name__}: {exc}"
-            )
-            return False
-
-        if price <= 0:
-            return False
-
-        entry_price = self._float(
-            position.get("entry_price", 0)
-        )
-
-        # -----------------------------------------------------
-        # DAY-TRADE EXIT ORDER:
-        # 1) emergency stop, 2) take profit, 3) max-hold rotation.
         entry_price = self._float(position.get("entry_price", 0))
-        profit_pct = (price / entry_price - 1.0) if entry_price > 0 else 0.0
+        if entry_price <= 0 or price <= 0:
+            return False
 
-        # Emergency stop remains active even while the trade is losing.
-        stop_price = self._float(position.get("stop_price", 0))
-        if stop_price > 0 and price <= stop_price:
-            result = await self.exit_position(position, "emergency stop loss", apply_cooldown=True)
-            return bool(result.get("ok"))
-
-        # Take profit: lock the gain as soon as the target is reached.
+        profit_pct = price / entry_price - 1.0
         target_pct = max(0.0, float(settings.take_profit_pct))
-        if target_pct > 0 and entry_price > 0 and profit_pct >= target_pct:
-            result = await self.exit_position(position, "take-profit reached", apply_cooldown=False)
-            return bool(result.get("ok"))
 
-        # Max hold: rotate even if flat or losing so capital is not stuck.
-        opened_ts = self._float(position.get("opened_ts", 0))
-        max_hold_seconds = max(0, int(settings.max_hold_minutes)) * 60
-        if opened_ts > 0 and max_hold_seconds > 0 and time.time() - opened_ts >= max_hold_seconds:
-            reason = (
-                "max hold reached; rotating to next day-trade "
-                f"(P&L {profit_pct * 100:.3f}%)"
-                if entry_price > 0
-                else "max hold reached; rotating to next day-trade"
-            )
-            result = await self.exit_position(position, reason, apply_cooldown=False)
-            return bool(result.get("ok"))
-
-        if entry_price > 0:
-            if profit_pct > 0:
-                self.last_position_reason = (
-                    f"holding profitable position ({profit_pct * 100:.3f}%) until take profit"
-                )
-            else:
-                self.last_position_reason = (
-                    f"holding day-trade ({profit_pct * 100:.3f}%; "
-                    f"max hold {settings.max_hold_minutes}m)"
-                )
-        return False
-
-        # -----------------------------------------------------
-        # EMERGENCY STOP
-        # -----------------------------------------------------
-        stop_price = self._float(
-            position.get("stop_price", 0)
-        )
-
+        # 1. Emergency stop always has priority over everything else.
+        stop_price = self._float(position.get("stop_price", 0))
         if stop_price > 0 and price <= stop_price:
             result = await self.exit_position(
                 position,
@@ -1969,229 +1901,47 @@ class KrakenBot:
             )
             return bool(result.get("ok"))
 
-        # -----------------------------------------------------
-        # MAX HOLD -> ROTATE
-        # -----------------------------------------------------
-        # If the trade has not reached take profit within the
-        # day-trading window, close it and immediately allow the
-        # main loop to scan for the next setup.
-        opened_ts = self._float(
-            position.get("opened_ts", 0)
-        )
-        max_hold_seconds = max(
-            0,
-            int(settings.max_hold_minutes),
-        ) * 60
-
-        if (
-            opened_ts > 0
-            and max_hold_seconds > 0
-            and time.time() - opened_ts >= max_hold_seconds
-        ):
-            reason = (
-                "max hold reached; "
-                f"rotating to next day-trade "
-                f"(P&L {((price / entry_price - 1.0) * 100):.3f}%)"
-                if entry_price > 0
-                else "max hold reached; rotating to next day-trade"
-            )
+        # 2. Take profit as soon as the configured target is reached.
+        if target_pct > 0 and profit_pct >= target_pct:
             result = await self.exit_position(
                 position,
-                reason,
+                "take-profit reached",
                 apply_cooldown=False,
             )
             return bool(result.get("ok"))
 
-        # -----------------------------------------------------
-        # PROFIT PROTECTION
-        # -----------------------------------------------------
-        # Once the trade is positive, keep holding for take profit.
-        # Do not let the AI rotate it out early.
-        if entry_price > 0 and price > entry_price:
+        # 3. Rotate after the maximum hold time regardless of P&L.
+        #    This prevents a losing/flat position from bypassing the day-trade timer.
+        opened_ts = self._float(position.get("opened_ts", 0))
+        max_hold_seconds = max(0, int(settings.max_hold_minutes)) * 60
+        if opened_ts > 0 and max_hold_seconds > 0:
+            held_seconds = time.time() - opened_ts
+            if held_seconds >= max_hold_seconds:
+                result = await self.exit_position(
+                    position,
+                    (
+                        "max hold reached; rotating to next day-trade "
+                        f"(P&L {profit_pct * 100:.3f}%)"
+                    ),
+                    apply_cooldown=False,
+                )
+                return bool(result.get("ok"))
+
+        # 4. While below target, keep the position only until the stop or timer.
+        if profit_pct <= 0:
+            self.last_position_reason = (
+                f"holding short-term position "
+                f"(P&L {profit_pct * 100:.3f}%; "
+                f"max hold {settings.max_hold_minutes}m)"
+            )
+        else:
             self.last_position_reason = (
                 f"holding profitable position "
-                f"({(price / entry_price - 1.0) * 100:.3f}%) "
-                f"until take profit"
+                f"({profit_pct * 100:.3f}%) until take profit "
+                f"(target {target_pct * 100:.3f}%)"
             )
 
         return False
-
-    # =========================================================
-    # PAPER ADAPTIVE SIGNAL
-    # =========================================================
-
-    def _best_paper_adaptive_signal(self):
-        """
-        PAPER-only fallback used when the strict entry gate
-        produces no candidate.
-
-        It still requires:
-        - LONG direction
-        - positive execution-adjusted edge
-        - minimum model probability
-        - minimum validation accuracy
-        - positive combined directional edge
-        - minimum reward/risk
-
-        It does not relax LIVE trading rules.
-        """
-
-        if not settings.paper_adaptive_entry:
-            return None
-
-        if not self.kraken.is_paper:
-            return None
-
-        candidates = []
-
-        for signal in self.signals:
-            probability = self._float(
-                signal.get("probability_up", 0)
-            )
-            accuracy = self._float(
-                signal.get("accuracy", 0)
-            )
-            execution_net = self._float(
-                signal.get("execution_net_move", 0)
-            )
-            combined_edge = self._float(
-                signal.get("combined_edge", 0)
-            )
-            confidence = self._float(
-                signal.get("confidence", 0)
-            )
-            reward_risk = self._float(
-                signal.get("reward_risk", 0)
-            )
-            expected_move = self._float(
-                signal.get("expected_move", 0)
-            )
-
-            if str(signal.get("direction", "")).upper() != "LONG":
-                continue
-
-            if probability < settings.paper_min_probability:
-                continue
-
-            if accuracy < settings.paper_min_training_accuracy:
-                continue
-
-            if execution_net <= 0:
-                continue
-
-            if combined_edge <= 0:
-                continue
-
-            if confidence < 0.08:
-                continue
-
-            if expected_move < settings.min_expected_move:
-                continue
-
-            if reward_risk < settings.paper_min_reward_risk:
-                continue
-
-            candidates.append(signal)
-
-        if not candidates:
-            # Day-trading PAPER fallback: choose the strongest
-            # directional setup even when the conservative
-            # execution-cost gate rejects every candidate.
-            # This keeps PAPER mode exercising the full
-            # BUY -> TP/SL -> SELL -> next trade cycle.
-            paper_candidates = []
-            for signal in self.signals:
-                if str(signal.get("direction", "")).upper() != "LONG":
-                    continue
-                if self._float(signal.get("probability_up", 0)) < min(settings.paper_min_probability, 0.52):
-                    continue
-                if self._float(signal.get("accuracy", 0)) < settings.paper_min_training_accuracy:
-                    continue
-                if self._float(signal.get("expected_move", 0)) < min(settings.min_expected_move, 0.0005):
-                    continue
-                if self._float(signal.get("confidence", 0)) < 0.05:
-                    continue
-                paper_candidates.append(signal)
-
-            if not paper_candidates:
-                # PAPER-only fallback: if the ML layer produced no
-                # qualifying signal, select the best scanner market
-                # with a valid price so the PAPER day-trading loop
-                # can be exercised. This path is never used for LIVE.
-                try:
-                    scanner_candidates = self.scanner.top_symbols()
-                    if scanner_candidates:
-                        candidate = scanner_candidates[0]
-                        symbol = getattr(candidate, "symbol", str(candidate))
-                        ticker = self.kraken.fetch_ticker(symbol)
-                        price = self._float(
-                            ticker.get("last")
-                            or ticker.get("ask")
-                            or ticker.get("bid")
-                        )
-                        if price > 0:
-                            bid = self._float(ticker.get("bid") or price)
-                            ask = self._float(ticker.get("ask") or price)
-                            return {
-                                "symbol": symbol,
-                                "price": price,
-                                "last": price,
-                                "bid": bid,
-                                "ask": ask,
-                                "probability_up": 0.52,
-                                "probability": 0.52,
-                                "expected_move": 0.0005,
-                                "expected_net_move": 0.0,
-                                "execution_net_move": 0.0,
-                                "direction": "LONG",
-                                "confidence": 0.05,
-                                "strategy_score": 0.0,
-                                "strategy_agreement": 0.35,
-                                "bearish_reversal": 0.0,
-                                "combined_edge": 0.02,
-                                "estimated_profit": 0.0,
-                                "reward_risk": 0.0,
-                                "score": 0.01,
-                                "tradeable": False,
-                                "reasons": ["PAPER fallback"],
-                                "accuracy": settings.paper_min_training_accuracy,
-                                "samples": 0,
-                                "regime": "PAPER_FALLBACK",
-                                "strategies": {},
-                                "market_rank": 1,
-                                "volume_24h": getattr(candidate, "quote_volume", 0.0),
-                            }
-                except Exception as exc:
-                    print("PAPER FALLBACK ERROR:", type(exc).__name__, exc)
-
-                return None
-
-            paper_candidates.sort(
-                key=lambda x: (
-                    self._float(x.get("probability_up", 0)),
-                    self._float(x.get("expected_move", 0)),
-                    self._float(x.get("combined_edge", 0)),
-                    self._float(x.get("score", 0)),
-                ),
-                reverse=True,
-            )
-
-            return paper_candidates[0]
-
-        candidates.sort(
-            key=lambda x: (
-                self._float(x.get("score", 0)),
-                self._float(x.get("combined_edge", 0)),
-                self._float(x.get("execution_net_move", 0)),
-            ),
-            reverse=True,
-        )
-
-        return candidates[0]
-
-    # =========================================================
-    # ENTER BEST TRADE
-    # =========================================================
 
     async def maybe_enter_best(self):
 
