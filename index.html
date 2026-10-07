@@ -4009,6 +4009,7 @@ async function startBot() {
             alert(
                 "Bot could not start:\n\n" +
                 (
+                    data.message ??
                     data.error ??
                     "Unknown error"
                 )
