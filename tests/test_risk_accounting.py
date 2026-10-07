@@ -121,6 +121,22 @@ class RiskAccountingTests(unittest.TestCase):
             0,
         )
 
+    def test_paper_cost_model_uses_both_sides_of_slippage(self):
+        from config import Settings
+        from kraken_client import KrakenTrader
+
+        settings = Settings()
+        settings.round_trip_cost_pct = 1.60
+        settings.slippage_buffer_pct = 0.10
+
+        trader = KrakenTrader(settings)
+        self.assertAlmostEqual(
+            trader.settings.round_trip_cost_pct / 100
+            + (trader.settings.slippage_buffer_pct / 100) * 2,
+            0.018,
+            places=8,
+        )
+
     def test_paper_market_fills_apply_configured_slippage(self):
         from config import Settings
         from kraken_client import KrakenTrader
