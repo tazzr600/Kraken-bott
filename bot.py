@@ -14,6 +14,8 @@ from db import (
     delete_position,
     get_positions,
     get_risk,
+    get_trades,
+    register_closed_trade,
     set_position,
     set_risk,
     stats,
@@ -287,30 +289,51 @@ class KrakenBot:
     # RISK
     # =========================================================
 
+    def _today_trade_metrics(self):
+        # Risk limits use completed SELL trades from the current
+        # calendar day, not a rolling 24-hour window.
+        now = time.time()
+        local = time.localtime(now)
+        day_start = time.mktime((
+            local.tm_year, local.tm_mon, local.tm_mday,
+            0, 0, 0, local.tm_wday, local.tm_yday, local.tm_isdst,
+        ))
+
+        daily_pnl = 0.0
+        trades_today = 0
+
+        for trade in get_trades(limit=5000):
+            if str(trade.get("side", "")).upper() != "SELL":
+                continue
+            if str(trade.get("status", "")).upper() != "CLOSED":
+                continue
+            if self._float(trade.get("ts"), 0.0) < day_start:
+                continue
+
+            trades_today += 1
+            daily_pnl += self._float(trade.get("pnl"), 0.0)
+
+        return daily_pnl, trades_today
+
     def _can_trade(self):
 
         try:
 
+            daily_pnl, trades_today = self._today_trade_metrics()
             s = stats()
 
-            if (
-                s.get("last_24h_pnl", 0)
-                <= -settings.daily_loss_limit_usd
-            ):
+            if daily_pnl <= -settings.daily_loss_limit_usd:
 
                 return (
                     False,
-                    "24h loss limit reached",
+                    "daily loss limit reached",
                 )
 
-            if (
-                s.get("trades_24h", 0)
-                >= settings.max_trades_per_day
-            ):
+            if trades_today >= settings.max_trades_per_day:
 
                 return (
                     False,
-                    "24h trade limit reached",
+                    "daily trade limit reached",
                 )
 
             if (
@@ -1720,6 +1743,9 @@ class KrakenBot:
                 "reason": reason,
             })
 
+            # Synchronize persisted risk counters after each completed SELL.
+            register_closed_trade(pnl)
+
             # =================================================
             # PAPER ACCOUNT
             # =================================================
@@ -2760,6 +2786,15 @@ class KrakenBot:
 
             "models":
                 len(self.models),
+
+            "markets_discovered":
+                len(self.scanner.markets),
+
+            "max_scan_symbols":
+                settings.max_scan_symbols,
+
+            "allowed_quotes":
+                settings.allowed_quote_list,
 
             "rotation":
                 {
