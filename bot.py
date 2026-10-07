@@ -2561,3 +2561,509 @@ class KrakenBot:
                 ] = self._float(
                     position["entry_price"]
                 )
+
+        try:
+
+            record_equity_snapshot(
+                prices
+            )
+
+        except Exception as exc:
+
+            print(
+                "EQUITY SNAPSHOT ERROR:",
+                type(exc).__name__,
+                exc,
+            )
+
+    # =========================================================
+    # AUTONOMOUS DAY-TRADING LOOP
+    # =========================================================
+
+    async def run(self):
+
+        self.running = True
+        self.error = None
+
+        print("=" * 60)
+        print(
+            "AUTONOMOUS DAY-TRADING ENGINE ONLINE"
+        )
+        print(
+            "FULL MARKET SCANNER ONLINE"
+        )
+        print(
+            "AI EDGE ENGINE ONLINE"
+        )
+        print(
+            f"PAPER MODE: {self.kraken.is_paper}"
+        )
+        print(
+            "ONE POSITION AT A TIME: ENABLED"
+        )
+        print(
+            "CONTINUOUS MARKET SCANNING: ENABLED"
+        )
+        print(
+            "AI POSITION ROTATION: ENABLED"
+        )
+        print(
+            "BEARISH REVERSAL EXIT: ENABLED"
+        )
+        print(
+            "EMERGENCY STOP LOSS: ENABLED"
+        )
+        print(
+            f"TAKE PROFIT: {settings.take_profit_pct * 100:.3f}%"
+        )
+        print(
+            f"MAX HOLD: {settings.max_hold_minutes} MINUTES"
+        )
+        print("=" * 60)
+
+        try:
+
+            # Initialize/reset daily risk state immediately when the worker
+            # starts, even if no trade has completed yet today.
+            reset_daily_state_if_needed()
+
+            while self.running:
+
+                cycle_started = time.time()
+
+                try:
+
+                    # =================================================
+                    # ALWAYS SCAN FIRST
+                    # =================================================
+
+                    if self.scan_requested:
+
+                        print(
+                            "MANUAL SCAN REQUEST ACCEPTED"
+                        )
+
+                    await self.scan()
+
+                    if not self.running:
+                        break
+
+                    # =================================================
+                    # CURRENT POSITION
+                    # =================================================
+
+                    existing_position = (
+                        self._current_position()
+                    )
+
+                    if existing_position is not None:
+
+                        current_symbol = (
+                            existing_position["symbol"]
+                        )
+
+                        # =================================================
+                        # FIND BETTER ALTERNATIVE
+                        # =================================================
+
+                        best_alternative = (
+                            self._best_tradeable_signal(
+                                exclude_symbol=current_symbol
+                            )
+                        )
+
+                        self.last_rotation_check = (
+                            time.time()
+                        )
+
+                        if best_alternative:
+
+                            print(
+                                f"BEST ALTERNATIVE: "
+                                f"{best_alternative['symbol']} "
+                                f"score="
+                                f"{best_alternative['score']:.3f}"
+                            )
+
+                        # =================================================
+                        # MANAGE CURRENT POSITION
+                        # =================================================
+                        #
+                        # Hard price/time exits run first. If the position
+                        # survives those backstops, run the AI exit/rotation
+                        # decision. This keeps emergency protection ahead of
+                        # discretionary exits while actually activating the
+                        # AI rotation logic on every scan cycle.
+
+                        await self.manage_positions()
+
+                        if not self.running:
+                            break
+
+                        if self._current_position() is not None:
+                            position_should_hold = (
+                                await self.analyze_current_position(
+                                    self._current_position(),
+                                    best_alternative=best_alternative,
+                                )
+                            )
+
+                            if (
+                                not position_should_hold
+                                and self._current_position() is not None
+                            ):
+                                await self.exit_position(
+                                    self._current_position(),
+                                    self.last_position_reason
+                                    or "AI exit/rotation signal",
+                                    apply_cooldown=False,
+                                )
+
+                        if not self.running:
+                            break
+
+                        # =================================================
+                        # IF EXITED, LOOK FOR NEXT TRADE
+                        # =================================================
+
+                        if (
+                            self._current_position()
+                            is None
+                        ):
+
+                            await self.maybe_enter_best()
+
+                    else:
+
+                        # =================================================
+                        # FLAT
+                        # =================================================
+
+                        await self.maybe_enter_best()
+
+                    if not self.running:
+                        break
+
+                    # =================================================
+                    # EQUITY
+                    # =================================================
+
+                    await self.mark_equity()
+
+                    self.error = None
+
+                except asyncio.CancelledError:
+
+                    raise
+
+                except Exception as exc:
+
+                    self.error = (
+                        "BOT CYCLE ERROR: "
+                        f"{type(exc).__name__}: "
+                        f"{exc}"
+                    )
+
+                    print(
+                        self.error
+                    )
+
+                    # A single failed market/API cycle does not
+                    # permanently kill the autonomous worker.
+
+                # =================================================
+                # CYCLE DELAY
+                # =================================================
+
+                if self.running:
+
+                    configured_delay = max(
+                        5,
+                        int(
+                            getattr(
+                                settings,
+                                "scan_seconds",
+                                30,
+                            )
+                        ),
+                    )
+
+                    elapsed = (
+                        time.time()
+                        -
+                        cycle_started
+                    )
+
+                    remaining = max(
+                        0,
+                        configured_delay
+                        -
+                        elapsed,
+                    )
+
+                    if remaining > 0:
+
+                        await asyncio.sleep(
+                            remaining
+                        )
+
+        except asyncio.CancelledError:
+
+            self.running = False
+
+            print(
+                "AUTONOMOUS DAY-TRADING ENGINE CANCELLED"
+            )
+
+            raise
+
+        except Exception as exc:
+
+            self.error = (
+                "BOT LOOP FATAL ERROR: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            print(
+                self.error
+            )
+
+        finally:
+
+            self.running = False
+
+            print("=" * 60)
+            print(
+                "AUTONOMOUS DAY-TRADING ENGINE OFFLINE"
+            )
+            print("=" * 60)
+
+    # =========================================================
+    # STATUS
+    # =========================================================
+
+    def status(self):
+
+        position = self._current_position()
+
+        scanner_status = self.scanner.status()
+
+        return {
+
+            "running":
+                bool(self.running),
+
+            "scan_in_progress":
+                bool(self.scan_in_progress),
+
+            "scan_requested":
+                bool(self.scan_requested),
+
+            "has_position":
+                position is not None,
+
+            "position":
+                position,
+
+            "last_scan":
+                self.last_scan,
+
+            "last_scan_error":
+                self.last_scan_error,
+
+            "last_position_check":
+                self.last_position_check,
+
+            "last_position_reason":
+                self.last_position_reason,
+
+            "last_rotation_check":
+                self.last_rotation_check,
+
+            "last_rotation_reason":
+                self.last_rotation_reason,
+
+            "error":
+                self.error,
+
+            "signals":
+                len(self.signals),
+
+            "models":
+                len(self.models),
+
+            "mode":
+                getattr(
+                    self.kraken,
+                    "mode",
+                    "PAPER",
+                ),
+
+        }
+
+    # =========================================================
+    # SIGNALS
+    # =========================================================
+
+    def get_signals(self):
+        return self.signals
+
+    # =========================================================
+    # POSITIONS
+    # =========================================================
+
+    def get_positions(self):
+        return get_positions()
+
+    # =========================================================
+    # STATS
+    # =========================================================
+
+    def stats(self):
+        return stats()
+
+    # =========================================================
+    # SCANNER STATUS
+    # =========================================================
+
+    def scanner_status(self):
+
+        position = self._current_position()
+
+        best = self._best_tradeable_signal(
+            exclude_symbol=(
+                position["symbol"]
+                if position
+                else None
+            )
+        )
+
+        return {
+
+            "running":
+                bool(self.running),
+
+            "scanning":
+                bool(self.scan_in_progress),
+
+            "scan_requested":
+                bool(self.scan_requested),
+
+            "has_position":
+                position is not None,
+
+            "position_symbol":
+                (
+                    position["symbol"]
+                    if position
+                    else None
+                ),
+
+            "last_scan":
+                self.last_scan,
+
+            "last_scan_error":
+                self.last_scan_error,
+
+            "last_position_check":
+                self.last_position_check,
+
+            "last_position_reason":
+                self.last_position_reason,
+
+            "last_rotation_check":
+                self.last_rotation_check,
+
+            "last_rotation_reason":
+                self.last_rotation_reason,
+
+            "best_alternative":
+                best,
+
+            "error":
+                self.error,
+
+            "signals":
+                len(self.signals),
+
+            "models":
+                len(self.models),
+
+            "markets_discovered":
+                scanner_status.get(
+                    "markets_discovered",
+                    len(self.scanner.markets),
+                ),
+
+            "crypto_markets":
+                scanner_status.get(
+                    "crypto_markets",
+                    0,
+                ),
+
+            "forex_markets":
+                scanner_status.get(
+                    "forex_markets",
+                    0,
+                ),
+
+            "futures_markets":
+                scanner_status.get(
+                    "futures_markets",
+                    0,
+                ),
+
+            "xstocks_markets":
+                scanner_status.get(
+                    "xstocks_markets",
+                    0,
+                ),
+
+            "max_scan_symbols":
+                settings.max_scan_symbols,
+
+            "allowed_quotes":
+                settings.allowed_quote_list,
+
+            "trade_quotes":
+                settings.trade_quote_list,
+
+            "rotation":
+                {
+                    "enabled": True,
+
+                    "min_score_advantage":
+                        self.ROTATION_MIN_SCORE_ADVANTAGE,
+
+                    "score_multiplier":
+                        self.ROTATION_SCORE_MULTIPLIER,
+                },
+
+            "risk":
+                {
+                    "emergency_stop_loss":
+                        settings.stop_loss_pct,
+
+                    "fixed_take_profit":
+                        settings.take_profit_pct > 0,
+
+                    "max_hold":
+                        settings.max_hold_minutes > 0,
+
+                    "max_hold_minutes":
+                        settings.max_hold_minutes,
+
+                    "take_profit_pct":
+                        settings.take_profit_pct,
+
+                    "stop_loss_pct":
+                        settings.stop_loss_pct,
+
+                    "performance_gate_trades":
+                        settings.performance_gate_trades,
+
+                    "performance_gate_profit_factor":
+                        settings.performance_gate_profit_factor,
+                },
+
+        }
