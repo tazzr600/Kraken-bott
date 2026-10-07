@@ -201,7 +201,7 @@ class Settings:
     # trades for validation. It never changes LIVE entry rules.
     paper_adaptive_entry: bool = flag(
         "PAPER_ADAPTIVE_ENTRY",
-        False
+        True
     )
 
     paper_min_probability: float = float(
