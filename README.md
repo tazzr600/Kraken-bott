@@ -1,18 +1,37 @@
-# Polymarket Two-Sided Pair Bot — Railway Ready
+# Polymarket HFT Pair Engine
 
-This rebuild implements the paired-inventory concept for binary Polymarket markets.
+The legacy Kraken bot is removed. The repository is now organized around the Polymarket short-duration Up/Down workflow from the supplied research.
 
-For one binary market:
-- pair_cost = YES best ask + NO best ask
-- gross_edge = 1 - pair_cost
-- net_edge = gross_edge - fee_buffer - slippage_buffer
+## Exact trading flow implemented in PAPER mode
 
-The bot only attempts equal-size YES/NO pairs when the net edge passes the configured threshold.
+1. Discover live crypto Up/Down markets from Polymarket Gamma and read both CLOB order books.
+2. Build fair value from underlying spot vs opening price, time remaining, momentum, movement speed, realized volatility, and spot/perp basis.
+3. Compare model fair value against executable Up/Down asks and enter only when modeled edge clears the configured threshold.
+4. Continue adding to the primary side while the signal remains valid and inventory limits allow it.
+5. When the signal reverses, accumulate the opposite side to reduce unpaired directional exposure.
+6. Track equal Up/Down shares as paired inventory. Paired cost is UP_VWAP + DOWN_VWAP. When paired cost is below $1, the matched component has positive structural settlement value before fees and execution effects.
+7. Recalculate continuously with daily spend, per-market spend, minimum book size, cooldown, and consecutive-failure controls.
 
-Example: 0.1658 + 0.7810 = 0.9468, giving 0.0532 gross edge per matched pair before fees/slippage.
+## Dashboard
 
-It includes a live Polymarket market scanner, liquidity and short-duration filters, YES/NO order-book reads, pair pricing and sizing, daily spend limits, FAK execution in live mode, SQLite logging, FastAPI dashboard, Railway configuration, and PAPER mode by default.
+The dashboard is a dark trading-terminal layout matching the supplied reference direction: P&L/status ribbon, equity graph, fair-value monitor, live order book, central market-flow visualization, inventory builder, opportunity matrix, and execution log.
 
-Keep LIVE_TRADING=false while validating. Credentials belong only in Railway environment variables.
+## Safety
 
-Important: the two legs are NOT atomic. A YES fill can happen while NO fails. This is not guaranteed profit. Production hardening must reconcile actual account fills/positions after every live attempt before treating inventory as paired.
+This implementation is intentionally PAPER-only. It does not submit live orders or claim guaranteed profit. Polymarket crypto markets can resolve using Chainlink/TWAP data, while the model uses external spot/perp data as a trading-signal proxy.
+
+Railway starts uvicorn app.main:app --host 0.0.0.0 --port $PORT.
+
+Health: /health
+
+Control:
+- POST /api/control/start
+- POST /api/control/stop
+
+Data:
+- /api/status
+- /api/markets
+- /api/positions
+- /api/orders
+- /api/events
+- /api/equity
