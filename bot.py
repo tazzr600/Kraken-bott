@@ -373,6 +373,13 @@ class KrakenBot:
             else str(candidate)
         )
 
+        candidate_quote = str(
+            getattr(candidate, "quote", "")
+            or ""
+        ).upper()
+        if candidate_quote and candidate_quote not in settings.trade_quote_list:
+            return None
+
         # =====================================================
         # OHLCV
         # =====================================================
