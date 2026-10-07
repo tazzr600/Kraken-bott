@@ -5,12 +5,12 @@ from typing import Any
 @dataclass
 class Book:
     token_id: str
-    bid: Decimal | None = None
-    bid_size: Decimal = Decimal("0")
-    ask: Decimal | None = None
-    ask_size: Decimal = Decimal("0")
-    midpoint: Decimal | None = None
-    last: Decimal | None = None
+    bid: Decimal|None=None
+    bid_size: Decimal=Decimal("0")
+    ask: Decimal|None=None
+    ask_size: Decimal=Decimal("0")
+    midpoint: Decimal|None=None
+    last: Decimal|None=None
 
 @dataclass
 class Market:
@@ -26,7 +26,6 @@ class Market:
     min_size: Decimal
     tick_size: Decimal
     liquidity: Decimal
-    accepting_orders: bool = True
 
 @dataclass
 class Underlying:
@@ -58,37 +57,21 @@ class Signal:
 @dataclass
 class Position:
     market_id: str
-    yes_shares: Decimal = Decimal("0")
-    no_shares: Decimal = Decimal("0")
-    yes_cost: Decimal = Decimal("0")
-    no_cost: Decimal = Decimal("0")
-    paired_shares: Decimal = Decimal("0")
-
+    yes_shares: Decimal=Decimal("0")
+    no_shares: Decimal=Decimal("0")
+    yes_cost: Decimal=Decimal("0")
+    no_cost: Decimal=Decimal("0")
+    paired_shares: Decimal=Decimal("0")
     @property
-    def unpaired_yes(self):
-        return max(self.yes_shares - self.no_shares, Decimal("0"))
-
+    def unpaired_yes(self): return max(self.yes_shares-self.no_shares,Decimal("0"))
     @property
-    def unpaired_no(self):
-        return max(self.no_shares - self.yes_shares, Decimal("0"))
-
+    def unpaired_no(self): return max(self.no_shares-self.yes_shares,Decimal("0"))
     @property
-    def net_direction(self):
-        return self.yes_shares - self.no_shares
-
+    def net_direction(self): return self.yes_shares-self.no_shares
     @property
-    def yes_vwap(self):
-        return self.yes_cost / self.yes_shares if self.yes_shares else Decimal("0")
-
+    def yes_vwap(self): return self.yes_cost/self.yes_shares if self.yes_shares else Decimal("0")
     @property
-    def no_vwap(self):
-        return self.no_cost / self.no_shares if self.no_shares else Decimal("0")
-
-    @property
-    def matched_cost(self):
-        if not self.paired_shares:
-            return Decimal("0")
-        return self.yes_vwap + self.no_vwap
+    def no_vwap(self): return self.no_cost/self.no_shares if self.no_shares else Decimal("0")
 
 @dataclass
 class Opportunity:
@@ -102,5 +85,4 @@ class Opportunity:
     shares: Decimal
     price: Decimal
     spend: Decimal
-    paired_cost: Decimal | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str,Any]=field(default_factory=dict)
