@@ -1868,6 +1868,14 @@ def train_model(
         ).mean()
     )
 
+    # Positive-class precision is more useful for a long-only trader:
+    # when the model says "qualified upside", how often was there actually
+    # a move larger than the modeled trading cost?
+    positive_mask = predictions == 1
+    positive_precision = float(
+        y_test.to_numpy()[positive_mask].mean()
+    ) if positive_mask.any() else 0.0
+
     # ========================================================
     # ENSEMBLE
     # ========================================================
