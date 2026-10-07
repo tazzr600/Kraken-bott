@@ -40,6 +40,7 @@ class Settings:
     # Position/risk
     max_trade_usd: float = float(clean("MAX_TRADE_USD", "25"))
     max_position_pct: float = float(clean("MAX_POSITION_PCT", "0.05"))
+    max_inventory_fraction: float = float(clean("MAX_INVENTORY_FRACTION", "0.50"))
     daily_loss_limit_usd: float = float(clean("DAILY_LOSS_LIMIT_USD", "25"))
     max_trades_per_day: int = int(clean("MAX_TRADES_PER_DAY", "20"))
     max_consecutive_losses: int = int(clean("MAX_CONSECUTIVE_LOSSES", "3"))
