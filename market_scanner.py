@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import time
+import urllib.request
 from dataclasses import dataclass, asdict
 from typing import Any
 
@@ -19,6 +21,8 @@ class MarketCandidate:
     quote_volume: float
 
     liquidity_score: float
+    market_type: str = "CRYPTO"
+    venue: str = "KRAKEN_SPOT"
 
     rank: int = 0
 
@@ -78,6 +82,117 @@ class KrakenMarketScanner:
         self.last_error = None
 
         self.last_ticker_count = 0
+        self.futures_markets: list[dict] = []
+        self.last_futures_refresh = 0.0
+        self.last_futures_error = None
+
+    # =========================================================
+    # MARKET FAMILY CLASSIFICATION
+    # =========================================================
+
+    @staticmethod
+    def _market_type(
+        market: dict[str, Any]
+    ) -> str:
+
+        base = str(
+            market.get("base") or ""
+        ).upper()
+
+        quote = str(
+            market.get("quote") or ""
+        ).upper()
+
+        if base.endswith("X") and len(base) > 1:
+            return "XSTOCKS"
+
+        fiat = {
+            "USD", "EUR", "GBP", "CHF", "JPY", "CAD",
+            "AUD", "NZD", "SEK", "NOK", "DKK", "SGD",
+        }
+
+        if base in fiat and quote in fiat:
+            return "FOREX"
+
+        return "CRYPTO"
+
+    # =========================================================
+    # FUTURES DISCOVERY
+    # =========================================================
+
+    def _refresh_futures(self, force: bool = False):
+
+        now = time.time()
+
+        if (
+            not force
+            and self.last_futures_refresh
+            and now - self.last_futures_refresh
+            < self.settings.market_refresh_seconds
+        ):
+            return self.futures_markets
+
+        url = (
+            "https://futures.kraken.com/"
+            "derivatives/api/v3/instruments"
+        )
+
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "Kraken-bott/1.0",
+                },
+            )
+
+            with urllib.request.urlopen(
+                request,
+                timeout=10,
+            ) as response:
+                payload = json.loads(
+                    response.read().decode("utf-8")
+                )
+
+            instruments = payload.get("instruments", [])
+
+            if not isinstance(instruments, list):
+                instruments = []
+
+            active = []
+
+            for instrument in instruments:
+                if not isinstance(instrument, dict):
+                    continue
+
+                if instrument.get("tradeable") is False:
+                    continue
+
+                symbol = str(
+                    instrument.get("symbol")
+                    or instrument.get("instrumentName")
+                    or ""
+                ).strip()
+
+                if not symbol:
+                    continue
+
+                item = dict(instrument)
+                item["symbol"] = symbol
+                item["market_type"] = "FUTURES"
+                item["venue"] = "KRAKEN_FUTURES"
+                active.append(item)
+
+            self.futures_markets = active
+            self.last_futures_refresh = now
+            self.last_futures_error = None
+
+        except Exception as exc:
+            self.last_futures_error = (
+                f"{type(exc).__name__}: {exc}"
+            )
+
+        return self.futures_markets
 
     # =========================================================
     # MARKET FILTER
@@ -138,6 +253,8 @@ class KrakenMarketScanner:
         # QUOTE CURRENCY
         # -----------------------------------------------------
 
+        market_type = self._market_type(market)
+
         quote = str(
             market.get(
                 "quote"
@@ -145,10 +262,10 @@ class KrakenMarketScanner:
             or ""
         ).upper()
 
-        if quote not in (
-            self.settings.allowed_quote_list
+        if (
+            market_type != "FOREX"
+            and quote not in self.settings.allowed_quote_list
         ):
-
             return False
 
         # -----------------------------------------------------
@@ -516,6 +633,12 @@ class KrakenMarketScanner:
 
                             liquidity_score=
                                 liquidity_score,
+
+                            market_type=
+                                self._market_type(market),
+
+                            venue=
+                                "KRAKEN_SPOT",
                         )
                     )
 
@@ -557,6 +680,8 @@ class KrakenMarketScanner:
             # -------------------------------------------------
 
             self.universe = candidates
+
+            self._refresh_futures(force=force)
 
             try:
                 self.kraken.connected = True
@@ -710,34 +835,60 @@ class KrakenMarketScanner:
 
     def status(self):
 
+        counts = {
+            "CRYPTO": 0,
+            "FOREX": 0,
+            "XSTOCKS": 0,
+        }
+
+        for candidate in self.universe:
+            counts[candidate.market_type] = (
+                counts.get(candidate.market_type, 0) + 1
+            )
+
         return {
 
             "markets_loaded":
-                len(
-                    self.markets
-                ),
+                len(self.markets),
 
             "tickers_received":
                 self.last_ticker_count,
 
             "liquid_markets":
-                len(
-                    self.universe
-                ),
+                len(self.universe),
+
+            "markets_discovered":
+                len(self.markets),
+
+            "crypto_markets":
+                counts["CRYPTO"],
+
+            "forex_markets":
+                counts["FOREX"],
+
+            "xstocks_markets":
+                counts["XSTOCKS"],
+
+            "futures_markets":
+                len(self.futures_markets),
 
             "markets_sent_to_ml":
                 min(
-                    len(
-                        self.universe
-                    ),
+                    len(self.universe),
                     self.settings.max_scan_symbols
                 ),
 
             "last_refresh":
                 self.last_refresh,
 
+            "last_futures_refresh":
+                self.last_futures_refresh,
+
             "last_error":
                 self.last_error,
+
+            "futures_error":
+                self.last_futures_error,
 
             "allowed_quotes":
                 self.settings.allowed_quote_list,
@@ -748,3 +899,4 @@ class KrakenMarketScanner:
             "max_spread_pct":
                 self.settings.max_spread_pct,
         }
+
