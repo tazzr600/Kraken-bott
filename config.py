@@ -256,7 +256,7 @@ class Settings:
     max_hold_minutes: int = int(
         clean_env(
             "MAX_HOLD_MINUTES",
-            "5"
+            "2"
         )
     )
 
