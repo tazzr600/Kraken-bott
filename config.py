@@ -153,28 +153,28 @@ class Settings:
     forecast_bars: int = int(
         clean_env(
             "FORECAST_BARS",
-            "5"
+            "2"
         )
     )
 
     min_probability: float = float(
         clean_env(
             "MIN_PROBABILITY",
-            "0.51"
+            "0.56"
         )
     )
 
     min_expected_move: float = float(
         clean_env(
             "MIN_EXPECTED_MOVE",
-            "0.0005"
+            "0.002"
         )
     )
 
     min_training_accuracy: float = float(
         clean_env(
             "MIN_TRAINING_ACCURACY",
-            "0.45"
+            "0.52"
         )
     )
 
@@ -184,7 +184,7 @@ class Settings:
     min_reward_risk: float = float(
         clean_env(
             "MIN_REWARD_RISK",
-            "0.50"
+            "1.25"
         )
     )
 
@@ -193,27 +193,27 @@ class Settings:
     # trades for validation. It never changes LIVE entry rules.
     paper_adaptive_entry: bool = flag(
         "PAPER_ADAPTIVE_ENTRY",
-        True
+        False
     )
 
     paper_min_probability: float = float(
         clean_env(
             "PAPER_MIN_PROBABILITY",
-            "0.52"
+            "0.56"
         )
     )
 
     paper_min_training_accuracy: float = float(
         clean_env(
             "PAPER_MIN_TRAINING_ACCURACY",
-            "0.45"
+            "0.52"
         )
     )
 
     paper_min_reward_risk: float = float(
         clean_env(
             "PAPER_MIN_REWARD_RISK",
-            "0.50"
+            "1.25"
         )
     )
 
@@ -242,14 +242,14 @@ class Settings:
     stop_loss_pct: float = float(
         clean_env(
             "STOP_LOSS_PCT",
-            "0.005"
+            "0.008"
         )
     )
 
     take_profit_pct: float = float(
         clean_env(
             "TAKE_PROFIT_PCT",
-            "0.008"
+            "0.022"
         )
     )
 
@@ -312,7 +312,7 @@ class Settings:
     round_trip_cost_pct: float = float(
         clean_env(
             "ROUND_TRIP_COST_PCT",
-            "0.40"
+            "1.60"
         )
     )
 
