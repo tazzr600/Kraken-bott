@@ -163,7 +163,7 @@ class KrakenBot:
         current_amount = self._f(position.get("amount")) if position else 0.0
         max_base = max(
             0.00000001,
-            float(settings.max_position_pct) * max(1.0, float(settings.paper_start_balance)),
+            (float(settings.max_position_pct) * max(1.0, float(settings.paper_start_balance))) / mid,
         )
         inventory_ratio = max(-1.0, min(1.0, current_amount / max_base))
 
