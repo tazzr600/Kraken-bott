@@ -589,7 +589,7 @@ tr:last-child td {
         <h1>KRAKEN BOT</h1>
 
         <p>
-            Full-market crypto scanner • ML day trading • autonomous execution
+            Full Kraken multi-market scanner • ML day trading • autonomous execution
         </p>
     </div>
 
@@ -1295,6 +1295,62 @@ tr:last-child td {
 
             <div
                 id="marketsToML"
+                class="small-value"
+            >
+                —
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Crypto Markets
+            </div>
+
+            <div
+                id="cryptoMarkets"
+                class="small-value"
+            >
+                —
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Forex Markets
+            </div>
+
+            <div
+                id="forexMarkets"
+                class="small-value"
+            >
+                —
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                Futures Markets
+            </div>
+
+            <div
+                id="futuresMarkets"
+                class="small-value"
+            >
+                —
+            </div>
+        </div>
+
+
+        <div class="info-box">
+            <div class="small-label">
+                xStocks Markets
+            </div>
+
+            <div
+                id="xstocksMarkets"
                 class="small-value"
             >
                 —
@@ -3885,6 +3941,38 @@ async function refresh() {
         $("marketsToML").textContent =
             number(
                 scanner.markets_sent_to_ml ??
+                0,
+                0
+            );
+
+
+        $("cryptoMarkets").textContent =
+            number(
+                scanner.crypto_markets ??
+                0,
+                0
+            );
+
+
+        $("forexMarkets").textContent =
+            number(
+                scanner.forex_markets ??
+                0,
+                0
+            );
+
+
+        $("futuresMarkets").textContent =
+            number(
+                scanner.futures_markets ??
+                0,
+                0
+            );
+
+
+        $("xstocksMarkets").textContent =
+            number(
+                scanner.xstocks_markets ??
                 0,
                 0
             );
