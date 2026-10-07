@@ -16,6 +16,7 @@ from db import (
     get_risk,
     get_trades,
     register_closed_trade,
+    reset_daily_state_if_needed,
     set_position,
     set_risk,
     stats,
@@ -301,6 +302,9 @@ class KrakenBot:
     def _can_trade(self):
 
         try:
+            # Keep persisted dashboard counters synchronized with the
+            # current local calendar day before enforcing risk limits.
+            reset_daily_state_if_needed()
 
             daily_pnl, trades_today = self._today_trade_metrics()
             s = stats()
@@ -2555,6 +2559,10 @@ class KrakenBot:
         print("=" * 60)
 
         try:
+
+            # Initialize/reset daily risk state immediately when the worker
+            # starts, even if no trade has completed yet today.
+            reset_daily_state_if_needed()
 
             while self.running:
 
